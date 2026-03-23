@@ -1,13 +1,13 @@
 {
   "name": "browserless",
   "description": "Browserless.io REST API tools for web scraping, screenshots, PDFs, search, and more",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "author": {
     "name": "browserless.io",
     "url": "https://www.browserless.io"
   },
   "homepage": "https://docs.browserless.io/rest-apis/intro",
-  "repository": "https://github.com/browserless/browserless-mcp",
+  "repository": "https://github.com/browserless/claude-plugin",
   "license": "SSPL-1.0",
   "keywords": ["browserless", "scraping", "screenshot", "pdf", "browser-automation"],
   "hooks": "./hooks/hooks.json"
