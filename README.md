@@ -4,16 +4,11 @@ A Claude Code plugin that gives Claude direct access to the [Browserless.io](htt
 
 ## Installation
 
-Install the plugin in Claude Code:
+Clone the repo and point Claude Code at the plugin directory:
 
 ```bash
-claude plugin add browserless/browserless-mcp --path path/to/plugin
-```
-
-Or clone the repo and point Claude Code at the plugin directory:
-
-```bash
-git clone https://github.com/browserless/browserless-mcp.git
+git clone https://github.com/browserless/claude-plugin.git
+cd claude-plugin
 claude --plugin-dir .
 ```
 
