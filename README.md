@@ -45,6 +45,10 @@ Once authenticated, all skills are available as slash commands:
 /browserless:search what is browserless
 /browserless:map https://example.com
 /browserless:function click the login button on https://example.com
+/browserless:download download the CSV export from https://example.com/reports
+/browserless:export save https://example.com with all assets for offline viewing
+/browserless:performance run a lighthouse audit on https://example.com
+/browserless:crawl crawl https://example.com up to 3 levels deep
 ```
 
 ## Skills
@@ -58,6 +62,10 @@ Once authenticated, all skills are available as slash commands:
 | **Search** | `/browserless:search` | Search the web and optionally scrape result pages. Supports web, news, and image sources with time-based filtering and content categories. | `find recent AI news en español from the last week` |
 | **Map** | `/browserless:map` | Discover and list all URLs on a website. Crawls sitemaps, pages, and subdomains with relevance-based search filtering. | `save a list of all URLs on https://browserless.io in json format` |
 | **Function** | `/browserless:function` | Execute custom Puppeteer JavaScript in a cloud browser. Run arbitrary automation scripts, interact with page elements, fill forms, and return structured data. | `load the ./scripts/sample-script.js file and run it using /function` |
+| **Download** | `/browserless:download` | Run custom Puppeteer code and capture files downloaded by Chrome during execution. Extract CSVs, PDFs, images, or any downloadable file from a website. | `download the CSV export from https://example.com/reports` |
+| **Export** | `/browserless:export` | Export a webpage in its native format, optionally bundling all resources (CSS, JS, images) into a ZIP archive for offline use. | `save https://example.com with all assets as a ZIP` |
+| **Performance** | `/browserless:performance` | Run a Lighthouse audit on a webpage. Get scores for performance, accessibility, best practices, SEO, and PWA. | `audit the performance and accessibility of https://example.com` |
+| **Crawl** | `/browserless:crawl` | Crawl an entire website starting from a seed URL, following links to configurable depth while scraping all discovered pages. | `crawl https://docs.browserless.io up to 3 levels deep` |
 
 
 ## Auth Management
@@ -100,6 +108,10 @@ plugins/browserless/
     search/SKILL.md       # Web search
     map/SKILL.md          # URL discovery
     function/SKILL.md     # Custom Puppeteer code
+    download/SKILL.md     # File download capture
+    export/SKILL.md       # Webpage export with resources
+    performance/SKILL.md  # Lighthouse audits
+    crawl/SKILL.md        # Multi-page website crawling
 ```
 
 ## API Reference
@@ -114,6 +126,10 @@ Each skill maps to a Browserless REST API endpoint. Full API documentation is av
 | Search | `POST /search` |
 | Map | `POST /map` |
 | Function | `POST /function` |
+| Download | `POST /download` |
+| Export | `POST /export` |
+| Performance | `POST /performance` |
+| Crawl | `POST /crawl` |
 
 ## License
 
