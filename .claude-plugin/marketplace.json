@@ -1,0 +1,17 @@
+{
+  "name": "browserless",
+  "description": "Browserless.io plugins for Claude Code — web scraping, screenshots, PDFs, search, crawling, and Lighthouse audits.",
+  "owner": {
+    "name": "Browserless",
+    "email": "anderson@browserless.io"
+  },
+  "plugins": [
+    {
+      "name": "browserless",
+      "source": "./",
+      "description": "Browserless.io REST API tools for web scraping, screenshots, PDFs, search, and more",
+      "category": "web-automation",
+      "tags": ["browserless", "scraping", "screenshot", "pdf", "browser-automation", "crawl", "performance", "lighthouse"]
+    }
+  ]
+}

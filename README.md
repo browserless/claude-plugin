@@ -4,6 +4,21 @@ A Claude Code plugin that gives Claude direct access to the [Browserless.io](htt
 
 ## Installation
 
+Install from inside Claude Code:
+
+```
+/plugin marketplace add browserless/claude-plugin
+/plugin install browserless@browserless
+```
+
+To pull future updates:
+
+```
+/plugin marketplace update browserless
+```
+
+### Manual install (local development)
+
 Clone the repo and point Claude Code at the plugin directory:
 
 ```bash
