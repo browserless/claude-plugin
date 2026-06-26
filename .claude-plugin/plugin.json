@@ -1,6 +1,6 @@
 {
   "name": "browserless",
-  "description": "Browserless.io REST API tools for web scraping, screenshots, PDFs, search, and more",
+  "description": "Browserless.io browser automation for Claude — an interactive web agent plus scraping, search, crawling, export, and Lighthouse audits",
   "version": "1.0.0",
   "author": {
     "name": "browserless.io",
@@ -9,6 +9,7 @@
   "homepage": "https://docs.browserless.io/rest-apis/intro",
   "repository": "https://github.com/browserless/claude-plugin",
   "license": "SSPL-1.0",
-  "keywords": ["browserless", "scraping", "screenshot", "pdf", "browser-automation", "crawl", "performance", "lighthouse", "download", "export"],
-  "hooks": "./hooks/hooks.json"
+  "keywords": ["browserless", "agent", "browser-automation", "scraping", "crawl", "search", "performance", "lighthouse", "export", "mcp"],
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
 }

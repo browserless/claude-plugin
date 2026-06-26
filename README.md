@@ -55,12 +55,10 @@ Once authenticated, all skills are available as slash commands:
 
 ```
 /browserless:smart-scrape https://example.com
-/browserless:screenshot https://example.com
-/browserless:pdf https://example.com
+/browserless:agent log into https://example.com and download my latest invoice
 /browserless:search what is browserless
 /browserless:map https://example.com
 /browserless:function click the login button on https://example.com
-/browserless:download download the CSV export from https://example.com/reports
 /browserless:export save https://example.com with all assets for offline viewing
 /browserless:performance run a lighthouse audit on https://example.com
 /browserless:crawl crawl https://example.com up to 3 levels deep
@@ -71,17 +69,34 @@ Once authenticated, all skills are available as slash commands:
 | Skill | Command | Description | Example Prompt |
 |-------|---------|-------------|----------------|
 | **Auth** | `/browserless:auth` | Configure API token and region. Subcommands: `status`, `clear`, `region`. | |
+| **Agent** | `/browserless:agent` | Interactive, stateful browser session (via the MCP server) — navigate, click, type, log in, handle captchas/cookie banners, multi-step flows, file up/downloads. | `log into https://example.com and download my latest invoice` |
 | **Smart Scrape** | `/browserless:smart-scrape` | Scrape webpages with cascading strategies (HTTP fetch, proxy, headless browser, captcha solving). Returns markdown, HTML, screenshots, PDFs, or links. | `summarize the main content of https://news.ycombinator.com` |
-| **Screenshot** | `/browserless:screenshot` | Capture screenshots of webpages. Supports full-page, element-specific, viewport sizing, image formats (PNG/JPEG/WebP), and proxy/geo-targeting. | `take a screenshot of https://inet-ip.info/ using a French proxy, wait 5 seconds before taking it` |
-| **PDF** | `/browserless:pdf` | Generate PDFs from webpages or HTML. Supports paper formats, margins, headers/footers, landscape, background graphics, and tagged/accessible PDFs. | `save https://en.wikipedia.org/wiki/Headless_browser as a landscape A4 PDF` |
 | **Search** | `/browserless:search` | Search the web and optionally scrape result pages. Supports web, news, and image sources with time-based filtering and content categories. | `find recent AI news en español from the last week` |
 | **Map** | `/browserless:map` | Discover and list all URLs on a website. Crawls sitemaps, pages, and subdomains with relevance-based search filtering. | `save a list of all URLs on https://browserless.io in json format` |
 | **Function** | `/browserless:function` | Execute custom Puppeteer JavaScript in a cloud browser. Run arbitrary automation scripts, interact with page elements, fill forms, and return structured data. | `load the ./scripts/sample-script.js file and run it using /function` |
-| **Download** | `/browserless:download` | Run custom Puppeteer code and capture files downloaded by Chrome during execution. Extract CSVs, PDFs, images, or any downloadable file from a website. | `download the CSV export from https://example.com/reports` |
 | **Export** | `/browserless:export` | Export a webpage in its native format, optionally bundling all resources (CSS, JS, images) into a ZIP archive for offline use. | `save https://example.com with all assets as a ZIP` |
 | **Performance** | `/browserless:performance` | Run a Lighthouse audit on a webpage. Get scores for performance, accessibility, best practices, SEO, and PWA. | `audit the performance and accessibility of https://example.com` |
 | **Crawl** | `/browserless:crawl` | Crawl an entire website starting from a seed URL, following links to configurable depth while scraping all discovered pages. | `crawl https://docs.browserless.io up to 3 levels deep` |
 
+> Screenshots, PDFs, and file downloads no longer have standalone skills — they're covered by `/browserless:smart-scrape` (screenshot/pdf via output formats) and `/browserless:agent` (downloads during a flow).
+
+
+## MCP Server (browser agent + tools)
+
+Installing this plugin also registers the hosted **Browserless MCP server** (`https://mcp.browserless.io/mcp`), which adds tools the REST skills don't cover — most notably `browserless_agent`, an interactive browser-automation agent (navigate, click, type, snapshot, solve captchas, handle logins) that holds a live session across calls.
+
+It reuses the same credentials: set `BROWSERLESS_TOKEN` (env var or via `/browserless:auth`). With no token, the hosted endpoint falls back to OAuth sign-in.
+
+| Tool | Description |
+|------|-------------|
+| `browserless_agent` | Interactive browser session — navigate, snapshot, click, type, multi-step automation |
+| `browserless_smartscraper` | Scrape a page (markdown/HTML/screenshot/PDF/links) |
+| `browserless_crawl` | Crawl a site to configurable depth |
+| `browserless_map` | Discover all URLs on a site |
+| `browserless_search` | Web/news/image search |
+| `browserless_function` | Run custom Puppeteer code |
+| `browserless_export` | Export a page with all assets |
+| `browserless_performance` | Lighthouse audit |
 
 ## Auth Management
 
@@ -108,40 +123,36 @@ Credentials are stored in `~/.browserless/.env` with `600` permissions. The toke
 ## Plugin Structure
 
 ```
-plugins/browserless/
-  .claude-plugin/
-    plugin.json           # Plugin metadata
-  hooks/
-    hooks.json            # SessionStart hook config
-  scripts/
-    check-auth.sh         # Warns if token is not configured
-  skills/
-    auth/SKILL.md         # Authentication setup
-    smart-scrape/SKILL.md # Web scraping
-    screenshot/SKILL.md   # Screenshot capture
-    pdf/SKILL.md          # PDF generation
-    search/SKILL.md       # Web search
-    map/SKILL.md          # URL discovery
-    function/SKILL.md     # Custom Puppeteer code
-    download/SKILL.md     # File download capture
-    export/SKILL.md       # Webpage export with resources
-    performance/SKILL.md  # Lighthouse audits
-    crawl/SKILL.md        # Multi-page website crawling
+.claude-plugin/
+  plugin.json           # Plugin metadata
+.mcp.json               # Hosted Browserless MCP server (adds browserless_agent + tools)
+hooks/
+  hooks.json            # SessionStart hook config
+scripts/
+  check-auth.sh         # Warns if token is not configured
+skills/
+  auth/SKILL.md         # Authentication setup
+  agent/SKILL.md        # Interactive browser session (MCP-backed)
+  smart-scrape/SKILL.md # Web scraping (incl. screenshot/pdf via formats)
+  search/SKILL.md       # Web search
+  map/SKILL.md          # URL discovery
+  function/SKILL.md     # Custom Puppeteer code
+  export/SKILL.md       # Webpage export with resources
+  performance/SKILL.md  # Lighthouse audits
+  crawl/SKILL.md        # Multi-page website crawling
 ```
 
 ## API Reference
 
-Each skill maps to a Browserless REST API endpoint. Full API documentation is available at [docs.browserless.io/rest-apis/intro](https://docs.browserless.io/rest-apis/intro).
+Most skills map to a Browserless REST API endpoint; `agent` is served by the bundled MCP server over a WebSocket session instead. Full API documentation is available at [docs.browserless.io/rest-apis/intro](https://docs.browserless.io/rest-apis/intro).
 
 | Skill | Endpoint |
 |-------|----------|
+| Agent | MCP `browserless_agent` (WebSocket `/chromium/agent`) |
 | Smart Scrape | `POST /smart-scrape` |
-| Screenshot | `POST /screenshot` |
-| PDF | `POST /pdf` |
 | Search | `POST /search` |
 | Map | `POST /map` |
 | Function | `POST /function` |
-| Download | `POST /download` |
 | Export | `POST /export` |
 | Performance | `POST /performance` |
 | Crawl | `POST /crawl` |
