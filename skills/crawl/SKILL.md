@@ -25,7 +25,11 @@ DELETE ${BROWSERLESS_API_URL}/crawl/{id}?token=${BROWSERLESS_TOKEN} # Cancel a c
 Before making the request, source the saved credentials and resolve the token:
 
 ```bash
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 ```
 
 The token is resolved in this order:
@@ -132,7 +136,11 @@ The crawl API is asynchronous. Start the crawl, then poll for results:
 ### Step 1: Start the crawl
 
 ```bash
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl?token=$BROWSERLESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -151,7 +159,11 @@ Save the `id` from the response.
 ### Step 2: Poll for results
 
 ```bash
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 curl -s "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl/CRAWL_ID?token=$BROWSERLESS_TOKEN"
 ```
 

@@ -23,7 +23,11 @@ Content-Type: application/json
 Before making the request, source the saved credentials and resolve the token:
 
 ```bash
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 ```
 
 The token is resolved in this order:
@@ -84,7 +88,11 @@ Response fields:
 Use `curl` via Bash to make the request. Example:
 
 ```bash
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/map?token=$BROWSERLESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com", "limit": 100}'

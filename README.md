@@ -107,10 +107,15 @@ It reuses the same credentials: set `BROWSERLESS_TOKEN` (env var or via `/browse
 | `/browserless:auth clear` | Remove saved credentials |
 | `/browserless:auth region` | Change API region without re-entering token |
 
-Credentials are stored in `~/.browserless/.env` with `600` permissions. The token resolution order is:
+Credentials are stored in `~/.browserless/.env` with `600` permissions. For REST skills, the token resolution order is:
 
-1. `BROWSERLESS_TOKEN` environment variable (if set in shell)
+1. `BROWSERLESS_TOKEN` environment variable (if non-empty in the shell)
 2. `~/.browserless/.env` file (written by `/browserless:auth`)
+3. If neither provides a non-empty token, ask the user to run `/browserless:auth`.
+
+`BROWSERLESS_API_URL` follows the same precedence independently: a non-empty environment variable wins over the saved URL. If neither provides a URL, REST requests default to `https://production-sfo.browserless.io`. Empty environment values use the saved fallback. Loading saved credentials does not change the file.
+
+During `/browserless:auth` setup, the validation request checks the newly saved token and URL, ignoring environment overrides for that check only. Subsequent REST requests still prefer the environment.
 
 ## API Regions
 
@@ -156,6 +161,10 @@ Most skills map to a Browserless REST API endpoint; `agent` is served by the bun
 | Export | `POST /export` |
 | Performance | `POST /performance` |
 | Crawl | `POST /crawl` |
+
+## Tests
+
+Run `python3 scripts/test-credentials.py` with bash and zsh installed. It executes the documented credential snippets with a temporary home directory and no network requests.
 
 ## License
 
