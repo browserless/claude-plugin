@@ -54,6 +54,7 @@ If the response contains `"success": true`, tell the user auth is configured and
 Check if authentication is configured:
 
 ```bash
+(
 if [ -n "$BROWSERLESS_TOKEN" ]; then
   echo "Token set via environment variable"
   echo "Token: ${BROWSERLESS_TOKEN:0:8}..."
@@ -69,6 +70,7 @@ elif [ -f ~/.browserless/.env ]; then
 else
   echo "Not configured"
 fi
+)
 ```
 
 Report the status to the user. If configured, show the first 8 characters of the token (masked) and the API URL. If not configured, suggest running `/browserless:auth` to set up.

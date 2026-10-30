@@ -20,14 +20,17 @@ Content-Type: application/json
 
 ## Authentication
 
-Before making the request, source the saved credentials and resolve the token:
+Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
 
 ```bash
+(
 _bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
 BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
 BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
 unset _bl_token _bl_url
+# Make the request here, before leaving the subshell.
+)
 ```
 
 The token is resolved in this order:
@@ -88,6 +91,7 @@ Response fields:
 Use `curl` via Bash to make the request. Example:
 
 ```bash
+(
 _bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
 BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
@@ -96,6 +100,7 @@ unset _bl_token _bl_url
 curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/map?token=$BROWSERLESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com", "limit": 100}'
+)
 ```
 
 Present the discovered URLs to the user in a readable format. If the user wants to search for specific pages, use the `search` parameter to filter by relevance.

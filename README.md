@@ -115,6 +115,8 @@ Credentials are stored in `~/.browserless/.env` with `600` permissions. For REST
 
 `BROWSERLESS_API_URL` follows the same precedence independently: a non-empty environment variable wins over the saved URL. If neither provides a URL, REST requests default to `https://production-sfo.browserless.io`. Empty environment values use the saved fallback. Loading saved credentials does not change the file.
 
+REST examples load credentials and make requests inside a subshell. Saved values do not persist in the calling shell, so later calls pick up changes to the saved token or region while preserving environment overrides.
+
 During `/browserless:auth` setup, the validation request checks the newly saved token and URL, ignoring environment overrides for that check only. Subsequent REST requests still prefer the environment.
 
 ## API Regions

@@ -32,6 +32,25 @@ def blocks(path):
     return re.findall(r"```bash\n(.*?)```", path.read_text(), re.S)
 
 
+def rest_blocks():
+    for path in sorted((ROOT / "skills").glob("*/SKILL.md")):
+        if path.parent.name in ("auth", "agent"):
+            continue
+        for index, block in enumerate(blocks(path)):
+            if "source ~/.browserless/.env" not in block:
+                continue
+            if "curl " not in block:
+                # Observe the standalone authentication example inside its scope.
+                if block.startswith("(\n"):
+                    block = block.rstrip().removesuffix(")") + "curl\n)\n"
+                else:
+                    block += "curl\n"
+            yield path.parent.name, index, block
+
+
+OBSERVE = 'curl() { printf "%s\\n%s\\n" "${BROWSERLESS_TOKEN:-}" "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}"; }\n'
+
+
 def run(shell, code, exported, saved):
     with tempfile.TemporaryDirectory(prefix="browserless test ") as home:
         if saved is not None:
@@ -47,20 +66,28 @@ class CredentialsTest(unittest.TestCase):
         # Execute the actual examples, replacing only the network boundary.
         # Re-sourcing without restoring either variable must fail this test.
         count = 0
-        for path in sorted((ROOT / "skills").glob("*/SKILL.md")):
-            if path.parent.name in ("auth", "agent"):
-                continue
-            for index, block in enumerate(blocks(path)):
-                if "source ~/.browserless/.env" not in block:
-                    continue
-                count += 1
-                code = "curl() { :; }\n" + block * 2
-                code += '\nprintf "%s\\n%s\\n" "${BROWSERLESS_TOKEN:-}" "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}"\n'
-                for shell in ("bash", "zsh"):
-                    for name, exported, saved, expected in CASES:
-                        with self.subTest(skill=path.parent.name, block=index, shell=shell, case=name):
-                            self.assertEqual(run(shell, code, exported, saved), "\n".join(expected) + "\n")
+        for skill, index, block in rest_blocks():
+            count += 1
+            code = OBSERVE + block * 2
+            calls = len(re.findall(r"^curl(?: |$)", block, re.M))
+            for shell in ("bash", "zsh"):
+                for name, exported, saved, expected in CASES:
+                    with self.subTest(skill=skill, block=index, shell=shell, case=name):
+                        self.assertEqual(run(shell, code, exported, saved), ("\n".join(expected) + "\n") * calls * 2)
         self.assertGreater(count, 0)
+
+    def test_saved_credentials_refresh_between_calls(self):
+        change = "printf '%s\\n' 'BROWSERLESS_TOKEN=new-token' 'BROWSERLESS_API_URL=https://new.example' > ~/.browserless/.env\n"
+        for skill, index, block in rest_blocks():
+            calls = len(re.findall(r"^curl(?: |$)", block, re.M))
+            for shell in ("bash", "zsh"):
+                for exported, first, second in (
+                    ({}, "saved-token\nhttps://saved.example\n", "new-token\nhttps://new.example\n"),
+                    ({TOKEN: "override"}, "override\nhttps://saved.example\n", "override\nhttps://new.example\n"),
+                    ({URL: "https://override.example"}, "saved-token\nhttps://override.example\n", "new-token\nhttps://override.example\n"),
+                ):
+                    with self.subTest(skill=skill, block=index, shell=shell, exported=exported):
+                        self.assertEqual(run(shell, OBSERVE + block + change + block, exported, SAVED), first * calls + second * calls)
 
     def test_auth_validates_saved_credentials(self):
         validation = next(block for block in blocks(ROOT / "skills/auth/SKILL.md") if "curl " in block)
