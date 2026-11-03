@@ -22,10 +22,17 @@ DELETE ${BROWSERLESS_API_URL}/crawl/{id}?token=${BROWSERLESS_TOKEN} # Cancel a c
 
 ## Authentication
 
-Before making the request, source the saved credentials and resolve the token:
+Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
 
 ```bash
+(
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
+# Make the request here, before leaving the subshell.
+)
 ```
 
 The token is resolved in this order:
@@ -132,7 +139,12 @@ The crawl API is asynchronous. Start the crawl, then poll for results:
 ### Step 1: Start the crawl
 
 ```bash
+(
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl?token=$BROWSERLESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -144,6 +156,7 @@ curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/c
       "onlyMainContent": true
     }
   }'
+)
 ```
 
 Save the `id` from the response.
@@ -151,8 +164,14 @@ Save the `id` from the response.
 ### Step 2: Poll for results
 
 ```bash
+(
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 curl -s "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl/CRAWL_ID?token=$BROWSERLESS_TOKEN"
+)
 ```
 
 Check the `status` field. If `"in-progress"`, wait a few seconds and poll again. If `"completed"`, the results are in `data`.
@@ -170,11 +189,18 @@ Present a summary of crawled pages (count, titles, URLs) and offer to show conte
 ### Listing and cancelling crawls
 
 ```bash
+(
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
+source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 # List all crawls
 curl -s "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl?token=$BROWSERLESS_TOKEN"
 
 # Cancel a crawl
 curl -s -X DELETE "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl/CRAWL_ID?token=$BROWSERLESS_TOKEN"
+)
 ```
 
 **Note**: The Crawl API is available on Cloud plans only. Results expire 24 hours after completion. Content URLs expire 1 hour after generation.

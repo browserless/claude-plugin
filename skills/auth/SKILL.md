@@ -31,13 +31,20 @@ ENVEOF
 chmod 600 ~/.browserless/.env
 ```
 
-4. Validate the token by making a test API call:
+4. Validate the newly saved token and URL in a subshell, ignoring existing environment overrides for this setup check only:
 
 ```bash
-source ~/.browserless/.env
+(
+unset BROWSERLESS_TOKEN BROWSERLESS_API_URL
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
+source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 curl -s -X POST "${BROWSERLESS_API_URL}/map?token=${BROWSERLESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com", "limit": 1}'
+)
 ```
 
 If the response contains `"success": true`, tell the user auth is configured and working. If it fails (401, 403, or connection error), tell them the token may be invalid and offer to retry.
@@ -47,17 +54,23 @@ If the response contains `"success": true`, tell the user auth is configured and
 Check if authentication is configured:
 
 ```bash
+(
 if [ -n "$BROWSERLESS_TOKEN" ]; then
   echo "Token set via environment variable"
   echo "Token: ${BROWSERLESS_TOKEN:0:8}..."
 elif [ -f ~/.browserless/.env ]; then
-  source ~/.browserless/.env
+  _bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
+  source ~/.browserless/.env 2>/dev/null
+  BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+  BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+  unset _bl_token _bl_url
   echo "Token loaded from ~/.browserless/.env"
   echo "Token: ${BROWSERLESS_TOKEN:0:8}..."
   echo "API URL: ${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}"
 else
   echo "Not configured"
 fi
+)
 ```
 
 Report the status to the user. If configured, show the first 8 characters of the token (masked) and the API URL. If not configured, suggest running `/browserless:auth` to set up.

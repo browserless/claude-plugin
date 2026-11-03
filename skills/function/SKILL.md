@@ -27,10 +27,17 @@ Content-Type: application/json
 
 ## Authentication
 
-Before making the request, source the saved credentials and resolve the token:
+Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
 
 ```bash
+(
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
+# Make the request here, before leaving the subshell.
+)
 ```
 
 The token is resolved in this order:
@@ -85,7 +92,12 @@ The response body and content-type match what the function returns.
 Use `curl` via Bash. For simple scripts, use `application/javascript` content type. For scripts needing dynamic context data, use `application/json`. Example:
 
 ```bash
+(
+_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
 source ~/.browserless/.env 2>/dev/null
+BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
+BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
+unset _bl_token _bl_url
 curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/function?token=$BROWSERLESS_TOKEN" \
   -H "Content-Type: application/javascript" \
   -d 'export default async ({ page }) => {
@@ -93,6 +105,7 @@ curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/f
   const title = await page.title();
   return { data: { title }, type: "application/json" };
 };'
+)
 ```
 
 Write the Puppeteer code based on the user's requirements. Use best practices: wait for selectors before interacting, handle navigation events, and return structured data.
