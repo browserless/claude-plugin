@@ -33,6 +33,8 @@ The agent handles the hard parts automatically — cookie consent, captchas, log
 
 ## Auth
 
-Same credentials as the rest of the plugin: `BROWSERLESS_TOKEN` (env var or `/browserless:auth`). With no token, the hosted endpoint falls back to OAuth sign-in.
+MCP uses `BROWSERLESS_TOKEN` and `BROWSERLESS_API_URL` exported in the shell that launches Claude Code; it does not read `~/.browserless/.env` directly. Run `/browserless:auth` for the shell-profile export instructions, then open a new terminal and fully quit and restart Claude Code from it. Exporting inside a skill's subprocess cannot update the running MCP connection.
+
+SFO/LON/AMS regions are passed through `x-browserless-api-url`; an unset URL defaults to SFO. Custom URLs are REST-skills-only with the hosted MCP server. With no token, the hosted endpoint falls back to OAuth sign-in.
 
 If the `browserless_agent` tool isn't listed, the MCP server isn't connected — run `/mcp` to check, and ensure the plugin's `.mcp.json` is loaded.

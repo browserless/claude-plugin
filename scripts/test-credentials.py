@@ -102,6 +102,28 @@ class CredentialsTest(unittest.TestCase):
             with self.subTest(shell=shell):
                 self.assertIn("API URL: https://exported.example", run(shell, status, {URL: EXPORTED[URL]}, SAVED))
 
+    def test_auth_profile_exports_credentials_to_new_processes(self):
+        profiles = [block for block in blocks(ROOT / "skills/auth/SKILL.md") if "export BROWSERLESS_TOKEN" in block]
+        self.assertEqual(len(profiles), 1, "auth must provide a shell-profile export snippet")
+        observe_child = "bash -c 'printf \"%s\\n%s\\n\" \"${BROWSERLESS_TOKEN:-}\" \"${BROWSERLESS_API_URL-unset}\"'\n"
+        for shell in ("bash", "zsh"):
+            for url in (
+                "https://production-sfo.browserless.io",
+                "https://production-lon.browserless.io",
+                "https://production-ams.browserless.io",
+                "https://self-hosted.example",
+                "",
+            ):
+                with self.subTest(shell=shell, url=url):
+                    saved = {TOKEN: EXPORTED[TOKEN], URL: url}
+                    expected_url = url if url in (
+                        "https://production-sfo.browserless.io",
+                        "https://production-lon.browserless.io",
+                        "https://production-ams.browserless.io",
+                    ) else "unset"
+                    self.assertEqual(run(shell, profiles[0] + observe_child, EXPORTED, saved),
+                                     f"{EXPORTED[TOKEN]}\n{expected_url}\n")
+
 
 if __name__ == "__main__":
     unittest.main()

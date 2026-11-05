@@ -41,13 +41,16 @@ Run the auth skill inside Claude Code:
 /browserless:auth
 ```
 
-This will prompt you for your token and preferred API region (SFO, LON, or a custom URL), then save the credentials to `~/.browserless/.env`.
+This will prompt you for your token and preferred API region (SFO, LON, AMS, or a custom URL), then save the credentials to `~/.browserless/.env` for REST skills. It also provides a shell-profile block to export the saved credentials for the MCP agent. Add that block to your launch shell's startup file, open a new terminal, then fully quit and restart Claude Code from that terminal. Saving the file alone cannot configure MCP in a running Claude Code process.
 
-Alternatively, set the environment variable directly:
+Alternatively, export credentials in the terminal you use to launch Claude Code (add these exports to your shell profile to persist them):
 
 ```bash
 export BROWSERLESS_TOKEN=your-token-here
+export BROWSERLESS_API_URL=https://production-lon.browserless.io
 ```
+
+Then launch or restart Claude Code from that terminal. Omit the URL export for the default SFO region; if it was previously set, run `unset BROWSERLESS_API_URL`. Do not set it to an empty string: Claude Code's MCP defaults apply only to **unset** variables. Custom URLs are REST-skills-only with the hosted MCP server; see [API Regions](#api-regions).
 
 ### 3. Start using skills
 
@@ -85,7 +88,9 @@ Once authenticated, all skills are available as slash commands:
 
 Installing this plugin also registers the hosted **Browserless MCP server** (`https://mcp.browserless.io/mcp`), which adds tools the REST skills don't cover — most notably `browserless_agent`, an interactive browser-automation agent (navigate, click, type, snapshot, solve captchas, handle logins) that holds a live session across calls.
 
-It reuses the same credentials: set `BROWSERLESS_TOKEN` (env var or via `/browserless:auth`). With no token, the hosted endpoint falls back to OAuth sign-in.
+MCP reads `BROWSERLESS_TOKEN` and `BROWSERLESS_API_URL` from the environment inherited by Claude Code at startup. It does **not** read `~/.browserless/.env` directly. Use the shell-profile export instructions from `/browserless:auth`, or export both variables before launching Claude Code. The URL is sent through `x-browserless-api-url`; if unset, it defaults to SFO. After changing credentials or region, fully quit and restart Claude Code from a terminal with the updated exports, then check the connection with `/mcp`.
+
+With no token, the hosted endpoint falls back to OAuth sign-in.
 
 | Tool | Description |
 |------|-------------|
@@ -119,13 +124,20 @@ REST examples load credentials and make requests inside a subshell. Saved values
 
 During `/browserless:auth` setup, the validation request checks the newly saved token and URL, ignoring environment overrides for that check only. Subsequent REST requests still prefer the environment.
 
+For MCP, use the [shell-profile block in the auth skill](skills/auth/SKILL.md) and restart Claude Code. The block exports saved SFO/LON/AMS settings to new processes without copying the token into the profile itself. It leaves custom URLs in the saved file for REST only and unsets the exported URL so hosted MCP defaults to SFO; the exported token must still be valid for hosted Browserless. REST validation and `/browserless:auth status` do not verify the MCP connection—use `/mcp` for that.
+
+`/browserless:auth clear` removes the saved file only. Existing exports and active MCP connections remain until you unset `BROWSERLESS_TOKEN` and `BROWSERLESS_API_URL` in your launch terminal (and remove any explicit profile exports), then quit and restart Claude Code.
+
 ## API Regions
 
-| Region | URL |
-|--------|-----|
-| SFO (US West, default) | `https://production-sfo.browserless.io` |
-| LON (Europe) | `https://production-lon.browserless.io` |
-| Custom | Any self-hosted or custom Browserless URL |
+| Region | URL | Supported by |
+|--------|-----|--------------|
+| SFO (US West, default) | `https://production-sfo.browserless.io` | REST skills and hosted MCP |
+| LON (London) | `https://production-lon.browserless.io` | REST skills and hosted MCP |
+| AMS (Amsterdam) | `https://production-ams.browserless.io` | REST skills and hosted MCP |
+| Custom | Any self-hosted or custom Browserless URL | REST skills only |
+
+The hosted MCP server restricts API URL overrides; arbitrary self-hosted URLs are rejected. Do not export a custom URL to the bundled MCP configuration. The auth skill's profile block keeps it available to REST skills while using SFO for MCP.
 
 ## Plugin Structure
 
