@@ -5,18 +5,37 @@ description: Drive an interactive browser session — navigate, snapshot the pag
 
 # Browser Agent
 
-This skill is backed by the **Browserless MCP server** (bundled with this plugin via `.mcp.json`), not a one-shot REST call. It holds a live browser session, so use it when the task is interactive or multi-step. For single-shot work prefer `/browserless:smart-scrape` (scrape, screenshot, pdf, links) instead.
+This skill is backed by the **Browserless MCP server** (bundled with this plugin via `.mcp.json`), not a one-shot REST call. It can keep a live browser session when explicitly requested, so use it when the task is interactive or multi-step. For single-shot work prefer `/browserless:smart-scrape` (scrape, screenshot, pdf, links) instead.
 
 ## How to run it
 
-Call the `browserless_agent` MCP tool. It connects to a real Chromium session at `https://mcp.browserless.io` and returns a page **snapshot** (accessibility tree + element refs) after each step. Drive it by issuing commands against those refs.
+Call the `browserless_agent` MCP tool. It connects to a real Chromium session at `https://mcp.browserless.io`. Request a page **snapshot** (accessibility tree + element refs) explicitly; do not assume each action returns one.
 
-Typical loop:
+For a multi-step task, set `keepSessionAlive: true` on the **first call**. Without it, a new call with no session handle is one-shot and closes the browser when it finishes. Start with a `goto` and a `snapshot` in the same batch:
 
-1. `navigate` to the starting URL → read the returned snapshot.
-2. Act on elements by ref: `click`, `type`, `select`, `scroll`, `press`.
-3. Re-read the snapshot, repeat until the goal is reached.
-4. Extract the result (text, a screenshot, or a downloaded file).
+```json
+{
+  "keepSessionAlive": true,
+  "commands": [
+    { "method": "goto", "params": { "url": "https://example.com" } },
+    { "method": "snapshot" }
+  ]
+}
+```
+
+Save the returned `sessionId` and pass it on **every continuation call**. Use refs from the latest snapshot, not invented or stale refs. For example, replace both placeholders below with the returned session ID and a clickable ref from that snapshot:
+
+```json
+{
+  "sessionId": "<returned-session-id>",
+  "commands": [
+    { "method": "click", "params": { "selector": "<ref-from-latest-snapshot>" } },
+    { "method": "snapshot" }
+  ]
+}
+```
+
+Passing `sessionId` keeps that browser alive by default; omitting it does not resume the session. Continue inspecting snapshots and acting until the goal is reached, then extract the result. End action batches with an explicit `snapshot` when you need the updated page state. When finished, close the browser with `{"sessionId":"<returned-session-id>","method":"close"}` rather than leaving it alive.
 
 The agent handles the hard parts automatically — cookie consent, captchas, login flows, shadow DOM, modals, tabs, and file up/downloads. Let it; don't hand-roll those.
 
