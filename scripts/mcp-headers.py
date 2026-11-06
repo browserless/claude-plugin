@@ -16,7 +16,7 @@ def main():
     except FileNotFoundError:
         lines = []
     for line in lines:
-        key, separator, value = line.removeprefix("export ").partition("=")
+        key, separator, value = line.strip().removeprefix("export ").partition("=")
         key = key.strip()
         if not separator or key not in ("BROWSERLESS_TOKEN", "BROWSERLESS_API_URL"):
             continue
@@ -44,7 +44,9 @@ def main():
             raise ValueError("Invalid API URL")
         _ = url.port  # Reject malformed or out-of-range ports.
         if url.hostname == "browserless.io" or url.hostname.endswith(".browserless.io"):
-            headers["x-browserless-api-url"] = api_url
+            if url.scheme != "https":
+                raise ValueError("Hosted API URL must use HTTPS")
+            headers["x-browserless-api-url"] = api_url.rstrip("/")
         else:
             print("Custom API URL is REST-only; hosted MCP will use SFO.", file=sys.stderr)
     print(json.dumps(headers))
@@ -53,7 +55,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError):
+    except Exception:
         # Never include credential values or file contents in diagnostics.
         print("Cannot load MCP credentials; check ~/.browserless/.env and environment overrides.", file=sys.stderr)
         sys.exit(1)

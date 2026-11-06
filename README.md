@@ -92,6 +92,8 @@ MCP uses [`headersHelper`](https://code.claude.com/docs/en/mcp#use-dynamic-heade
 
 With no token, the helper omits `Authorization` entirely, allowing Claude Code's OAuth sign-in flow. A static `Authorization` header would disable that flow, even if empty, so none is configured. An invalid configured token does not fall back to OAuth; correct or clear it and reconnect. The interactive sign-in flow still requires validation in a live Claude Code session.
 
+**Troubleshooting:** “Needs authentication” does not prove the saved token is absent. Claude Code can also drop the helper's headers after a failure, such as missing `python3`, Python older than 3.9, malformed `.env` quoting, or an invalid URL. Check helper stderr and `python3 --version`, correct the saved assignments, then reconnect in `/mcp`. The helper reports failures without credential contents or tracebacks. Do not print its stdout: successful output can contain the full token.
+
 | Tool | Description |
 |------|-------------|
 | `browserless_agent` | Interactive browser session — navigate, snapshot, click, type, multi-step automation |
@@ -138,7 +140,7 @@ For MCP, the helper reloads the saved file on reconnect, without executing it as
 | Other hosted | Valid `browserless.io` URLs, including `https://chrome.browserless.io` and dedicated subdomains | REST skills and hosted MCP |
 | Self-hosted | Arbitrary non-Browserless URLs | REST skills only |
 
-The helper preserves supported hosted URLs, including trailing slashes. URLs must use HTTP(S) without credentials, query strings or fragments. Arbitrary self-hosted URLs stay in the saved file for REST; the helper omits that URL header and warns that hosted MCP will use SFO. A self-hosted-only token will not authenticate to hosted Browserless. The helper's no-token flow sends no empty Bearer header and does not depend on the server's empty-Bearer fix being released first.
+The helper strips trailing slashes from supported hosted URLs before forwarding them, so REST-backed MCP tools do not construct double-slash paths. Hosted URLs must use **HTTPS**, without credentials, query strings or fragments. Arbitrary self-hosted URLs stay in the saved file for REST; the helper omits that URL header and warns that hosted MCP will use SFO. A self-hosted-only token will not authenticate to hosted Browserless. The helper's no-token flow sends no empty Bearer header and does not depend on the server's empty-Bearer fix being released first.
 
 ## Plugin Structure
 

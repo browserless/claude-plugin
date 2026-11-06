@@ -53,9 +53,11 @@ If the response contains `"success": true`, tell the user auth is configured and
 
 The helper reads literal `KEY=value` assignments (shell-quoted values are supported), not shell commands or variable substitutions. Non-empty environment values take precedence independently when Claude Code passes them through. Current Claude Code filters token-like environment variables from plugin helpers, so use the saved file for reliable MCP token configuration. Existing environment overrides still apply to REST skills; remove stale overrides if the two disagree.
 
-SFO/LON/AMS and other valid `browserless.io` URLs, including dedicated subdomains and trailing slashes, are passed through `x-browserless-api-url`. With no URL, MCP uses SFO. **Arbitrary self-hosted URLs remain REST-only**: the helper leaves them in the saved file but omits the MCP URL header and warns that hosted MCP uses SFO. A self-hosted-only token will not work on hosted Browserless. Clearly report this limitation for a self-hosted URL.
+SFO/LON/AMS and other valid HTTPS `browserless.io` URLs, including dedicated subdomains, are passed through `x-browserless-api-url` with trailing slashes removed. Plain HTTP hosted URLs are rejected to protect the token. With no URL, MCP uses SFO. **Arbitrary self-hosted URLs remain REST-only**: the helper leaves them in the saved file but omits the MCP URL header and warns that hosted MCP uses SFO. A self-hosted-only token will not work on hosted Browserless. Clearly report this limitation for a self-hosted URL.
 
 With no token, the helper omits `Authorization` entirely, allowing Claude Code's OAuth flow. An invalid configured token does not fall back to OAuth: correct or clear it, then reconnect in `/mcp`.
+
+If `/mcp` says **Needs authentication** despite a saved token, check helper stderr, `python3 --version` (3.9+ required), and `.env` quoting before suggesting sign-in. Claude Code can drop headers and offer OAuth after a helper failure. Do not display the helper's stdout, since successful output may expose the token.
 
 ### If "status" — Check Current Config
 
