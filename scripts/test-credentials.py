@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run documented credential snippets offline. Requires Python 3, bash and zsh."""
+import json
 import os
 from pathlib import Path
 import re
@@ -102,27 +103,58 @@ class CredentialsTest(unittest.TestCase):
             with self.subTest(shell=shell):
                 self.assertIn("API URL: https://exported.example", run(shell, status, {URL: EXPORTED[URL]}, SAVED))
 
-    def test_auth_profile_exports_credentials_to_new_processes(self):
-        profiles = [block for block in blocks(ROOT / "skills/auth/SKILL.md") if "export BROWSERLESS_TOKEN" in block]
-        self.assertEqual(len(profiles), 1, "auth must provide a shell-profile export snippet")
-        observe_child = "bash -c 'printf \"%s\\n%s\\n\" \"${BROWSERLESS_TOKEN:-}\" \"${BROWSERLESS_API_URL-unset}\"'\n"
-        for shell in ("bash", "zsh"):
-            for url in (
-                "https://production-sfo.browserless.io",
-                "https://production-lon.browserless.io",
-                "https://production-ams.browserless.io",
-                "https://self-hosted.example",
-                "",
-            ):
-                with self.subTest(shell=shell, url=url):
-                    saved = {TOKEN: EXPORTED[TOKEN], URL: url}
-                    expected_url = url if url in (
-                        "https://production-sfo.browserless.io",
-                        "https://production-lon.browserless.io",
-                        "https://production-ams.browserless.io",
-                    ) else "unset"
-                    self.assertEqual(run(shell, profiles[0] + observe_child, EXPORTED, saved),
-                                     f"{EXPORTED[TOKEN]}\n{expected_url}\n")
+    def test_mcp_headers(self):
+        # Exercise the configured command: static Authorization would disable OAuth
+        # before the helper's output could enable it.
+        config = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["browserless"]
+        self.assertFalse(any(key.lower() == "authorization" for key in config.get("headers", {})))
+        command = config.get("headersHelper")
+        self.assertIsNotNone(command, "MCP must load saved credentials at connection time")
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT))
+        for name, exported, saved, expected in (
+            ("OAuth without file", {}, None, {}),
+            ("OAuth empty token", {TOKEN: "  "}, {TOKEN: ""}, {}),
+            ("saved token with filtered environment", {}, {TOKEN: EXPORTED[TOKEN]},
+             {"Authorization": "Bearer " + EXPORTED[TOKEN]}),
+            ("independent overrides", {TOKEN: "override"}, {TOKEN: "saved", URL: "https://chrome.browserless.io/"},
+             {"Authorization": "Bearer override", "x-browserless-api-url": "https://chrome.browserless.io/"}),
+            ("empty environment falls back", {TOKEN: "", URL: ""}, {TOKEN: "saved", URL: "https://production-ams.browserless.io/"},
+             {"Authorization": "Bearer saved", "x-browserless-api-url": "https://production-ams.browserless.io/"}),
+            ("dedicated override", {URL: "https://dedicated.browserless.io"}, {TOKEN: "saved", URL: "https://production-lon.browserless.io"},
+             {"Authorization": "Bearer saved", "x-browserless-api-url": "https://dedicated.browserless.io"}),
+            ("self-hosted remains REST only", {}, {TOKEN: "saved", URL: "https://self-hosted.example"},
+             {"Authorization": "Bearer saved"}),
+            ("lookalike is not hosted", {}, {URL: "https://browserless.io.evil.example"}, {}),
+            ("OAuth retains selected region", {}, {URL: "https://production-lon.browserless.io/"},
+             {"x-browserless-api-url": "https://production-lon.browserless.io/"}),
+        ):
+            with self.subTest(case=name):
+                self.assertEqual(json.loads(run("bash", command, exported, saved)), expected)
+
+    def test_mcp_reconnect_reads_changed_file(self):
+        config = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["browserless"]
+        command = config.get("headersHelper")
+        self.assertIsNotNone(command, "MCP must reload credentials on reconnect")
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT))
+        code = command + "\nprintf '%s\\n' 'BROWSERLESS_TOKEN=updated' > ~/.browserless/.env\n" + command
+        output = run("bash", code, {}, {TOKEN: "initial"}).splitlines()
+        self.assertEqual([json.loads(line) for line in output],
+                         [{"Authorization": "Bearer initial"}, {"Authorization": "Bearer updated"}])
+
+    def test_mcp_rejects_invalid_headers_without_exposing_credentials(self):
+        command = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["browserless"]["headersHelper"]
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT))
+        for overrides in (
+            {TOKEN: "private-token\r\ninjected"},
+            {TOKEN: "private-token", URL: "https://production-lon.browserless.io/?token=private-token"},
+            {TOKEN: "private-token", URL: "https://private-token@production-lon.browserless.io"},
+            {TOKEN: "private-token", URL: "https://evil.example\\dedicated.browserless.io"},
+        ):
+            with self.subTest(overrides=list(overrides)):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    run("bash", command, overrides, None)
+                self.assertEqual(failure.exception.stdout, "")
+                self.assertNotIn("private-token", failure.exception.stderr)
 
 
 if __name__ == "__main__":

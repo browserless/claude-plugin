@@ -52,8 +52,8 @@ The agent handles the hard parts automatically — cookie consent, captchas, log
 
 ## Auth
 
-MCP uses `BROWSERLESS_TOKEN` and `BROWSERLESS_API_URL` exported in the shell that launches Claude Code; it does not read `~/.browserless/.env` directly. Run `/browserless:auth` for the shell-profile export instructions, then open a new terminal and fully quit and restart Claude Code from it. Exporting inside a skill's subprocess cannot update the running MCP connection.
+MCP uses the plugin's `headersHelper` (requires Python 3.9+) to read `~/.browserless/.env` on each connection. Run `/browserless:auth`, then reconnect Browserless in `/mcp`; saved credentials need no shell-profile exports or new launch terminal. Non-empty environment overrides apply when visible to the helper, but current Claude Code filters token-like environment variables from plugin helpers, so the saved file is the reliable MCP token source. Never display the helper's JSON output because it can contain credentials.
 
-SFO/LON/AMS regions are passed through `x-browserless-api-url`; an unset URL defaults to SFO. Custom URLs are REST-skills-only with the hosted MCP server. With no token, the hosted endpoint falls back to OAuth sign-in.
+Valid `browserless.io` URLs, including SFO/LON/AMS, dedicated subdomains and trailing slashes, are passed through `x-browserless-api-url`. With no URL, MCP uses SFO. Arbitrary self-hosted URLs remain REST-only; the helper warns and omits that override, so hosted MCP uses SFO. With no token, the helper omits `Authorization`, allowing Claude Code to offer OAuth sign-in. An invalid configured token must be corrected or cleared before reconnecting; it does not fall back to OAuth.
 
 If the `browserless_agent` tool isn't listed, the MCP server isn't connected — run `/mcp` to check, and ensure the plugin's `.mcp.json` is loaded.

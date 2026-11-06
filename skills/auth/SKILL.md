@@ -49,26 +49,13 @@ curl -s -X POST "${BROWSERLESS_API_URL}/map?token=${BROWSERLESS_TOKEN}" \
 
 If the response contains `"success": true`, tell the user auth is configured and working. If it fails (401, 403, or connection error), tell them the token may be invalid and offer to retry.
 
-5. Explain that saving the file configures REST skills only. The MCP agent reads the environment inherited by Claude Code at startup, not this file. Instruct the user to add the following block **once** to the startup file for the shell they use to launch Claude Code (`~/.zshrc` for zsh; `~/.bashrc` for interactive bash, or `~/.bash_profile` if they launch from a login shell). Do not edit their shell profile without permission, and do not print their token:
+5. Explain that both REST skills and the MCP agent can read the saved file. MCP uses the plugin's `headersHelper` (requires Python 3.9+) each time it connects. Use `/mcp` to **reconnect Browserless** after saving or changing credentials; no shell-profile block or new launch terminal is needed for saved credentials. Do not print the helper's output: it contains the token when configured. Do not claim MCP authentication or region is verified by the REST validation request.
 
-```bash
-if [ -f "$HOME/.browserless/.env" ]; then
-  source "$HOME/.browserless/.env"
-  export BROWSERLESS_TOKEN
-  case "${BROWSERLESS_API_URL:-}" in
-    https://production-sfo.browserless.io|https://production-lon.browserless.io|https://production-ams.browserless.io)
-      export BROWSERLESS_API_URL ;;
-    *)
-      unset BROWSERLESS_API_URL ;;
-  esac
-fi
-```
+The helper reads literal `KEY=value` assignments (shell-quoted values are supported), not shell commands or variable substitutions. Non-empty environment values take precedence independently when Claude Code passes them through. Current Claude Code filters token-like environment variables from plugin helpers, so use the saved file for reliable MCP token configuration. Existing environment overrides still apply to REST skills; remove stale overrides if the two disagree.
 
-Tell the user to **open a new terminal, then fully quit and restart Claude Code from that terminal**. Exporting in a skill's subprocess cannot update the running Claude Code process. After restart, use `/mcp` to check the Browserless connection before trying `/browserless:agent`.
+SFO/LON/AMS and other valid `browserless.io` URLs, including dedicated subdomains and trailing slashes, are passed through `x-browserless-api-url`. With no URL, MCP uses SFO. **Arbitrary self-hosted URLs remain REST-only**: the helper leaves them in the saved file but omits the MCP URL header and warns that hosted MCP uses SFO. A self-hosted-only token will not work on hosted Browserless. Clearly report this limitation for a self-hosted URL.
 
-For SFO/LON/AMS, the exported URL applies to both REST skills and agent sessions through the `x-browserless-api-url` MCP header. An unset URL defaults MCP to SFO; an explicitly empty URL does not use Claude Code's default, so unset it rather than exporting an empty string.
-
-**Custom URLs are REST-skills-only with the hosted MCP server.** The block intentionally leaves custom URLs in the saved file and unsets the environment URL: REST skills load the saved custom URL, while MCP uses SFO. The saved token is still exported to MCP and must be valid for hosted Browserless; a self-hosted-only token will not work there. Clearly report this limitation when the user chooses a custom URL. Do not claim MCP authentication or region is verified by the REST validation request.
+With no token, the helper omits `Authorization` entirely, allowing Claude Code's OAuth flow. An invalid configured token does not fall back to OAuth: correct or clear it, then reconnect in `/mcp`.
 
 ### If "status" — Check Current Config
 
@@ -96,7 +83,7 @@ fi
 
 Report the status to the user. If configured, show the first 8 characters of the token (masked) and the API URL. If not configured, suggest running `/browserless:auth` to set up.
 
-This checks REST credentials, not the parent Claude Code process's MCP configuration. Remind the user that saved credentials require the shell-profile export block and a Claude Code restart for MCP; use `/mcp` to inspect the actual connection.
+This checks REST credentials, not the active MCP connection. Use `/mcp` to inspect or reconnect Browserless; the helper reloads the saved file on reconnect. Do not run the helper to display status, since its JSON output may contain the full token.
 
 ### If "clear" — Remove Saved Credentials
 
@@ -107,7 +94,7 @@ rm -f ~/.browserless/.env
 echo "Browserless credentials removed."
 ```
 
-Confirm that the saved file has been removed, but explain that existing environment exports and the running MCP connection are not cleared by deleting it. Instruct the user to remove any explicit Browserless exports from their shell profile, run `unset BROWSERLESS_TOKEN BROWSERLESS_API_URL` in their launch terminal, and fully quit and restart Claude Code. With no token, the hosted MCP server offers OAuth sign-in.
+Confirm that the saved file has been removed, but explain that existing environment exports and the active MCP connection are not cleared by deleting it. Reconnect Browserless in `/mcp` to reload credentials. If the helper still receives an environment token, remove that override from the launch environment and restart Claude Code; changing an export in a subprocess cannot change its parent. Clear existing OAuth authentication separately in `/mcp` if the user also wants to sign out. With neither a saved nor a visible environment token, the helper omits `Authorization`, allowing OAuth sign-in.
 
 ### If "region" — Change Region Only
 
@@ -115,4 +102,4 @@ Update just the API URL in the existing config:
 
 1. Ask which region (SFO, LON, AMS, or custom URL)
 2. Update the `BROWSERLESS_API_URL` line in `~/.browserless/.env`
-3. If the shell-profile block above is not installed, provide it. Tell the user to open a new terminal and fully quit and restart Claude Code so MCP receives the new region. Explain that custom URLs remain REST-only; the hosted MCP agent uses SFO with the block above.
+3. Reconnect Browserless in `/mcp` so the helper reads the new URL. Explain that non-empty visible environment URL overrides take precedence, `browserless.io` URLs work with hosted MCP, and arbitrary self-hosted URLs remain REST-only (MCP uses SFO with a warning).
