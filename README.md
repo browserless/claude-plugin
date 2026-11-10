@@ -41,13 +41,16 @@ Run the auth skill inside Claude Code:
 /browserless:auth
 ```
 
-This will prompt you for your token and preferred API region (SFO, LON, or a custom URL), then save the credentials to `~/.browserless/.env`.
+This prompts for your token and preferred API region (SFO, LON, AMS, or a custom URL), then saves credentials to `~/.browserless/.env`. Both REST skills and the MCP agent read the saved file. After setup, reconnect Browserless in `/mcp` to reload credentials; no shell-profile block or new launch terminal is needed. The MCP header helper requires **Python 3.9+** on `PATH` as `python3`.
 
-Alternatively, set the environment variable directly:
+Environment variables can override saved REST credentials:
 
 ```bash
 export BROWSERLESS_TOKEN=your-token-here
+export BROWSERLESS_API_URL=https://production-lon.browserless.io
 ```
+
+The MCP helper also honors non-empty environment values when Claude Code passes them through. Current Claude Code [filters token-like environment variables from plugin helpers](https://code.claude.com/docs/en/mcp#which-variables-a-helper-can-read), including `BROWSERLESS_TOKEN`, so use `/browserless:auth` and the saved file for reliable MCP authentication. Changing an inherited environment override still requires restarting Claude Code, but changing the saved file only requires reconnecting. Arbitrary self-hosted URLs remain REST-only; see [API Regions](#api-regions).
 
 ### 3. Start using skills
 
@@ -85,7 +88,11 @@ Once authenticated, all skills are available as slash commands:
 
 Installing this plugin also registers the hosted **Browserless MCP server** (`https://mcp.browserless.io/mcp`), which adds tools the REST skills don't cover — most notably `browserless_agent`, an interactive browser-automation agent (navigate, click, type, snapshot, solve captchas, handle logins) that holds a live session across calls.
 
-It reuses the same credentials: set `BROWSERLESS_TOKEN` (env var or via `/browserless:auth`). With no token, the hosted endpoint falls back to OAuth sign-in.
+MCP uses [`headersHelper`](https://code.claude.com/docs/en/mcp#use-dynamic-headers-for-custom-authentication) to run `scripts/mcp-headers.py` at each connection. It reads saved `BROWSERLESS_TOKEN` and `BROWSERLESS_API_URL` from `~/.browserless/.env`, with non-empty visible environment values taking precedence independently. It sends supported hosted URLs through `x-browserless-api-url`; without an override, the server defaults to SFO. Reconnect Browserless from `/mcp` after changing saved credentials or region. Never display the helper's output: its JSON may contain the full token.
+
+With no token, the helper omits `Authorization` entirely, allowing Claude Code's OAuth sign-in flow. A static `Authorization` header would disable that flow, even if empty, so none is configured. An invalid configured token does not fall back to OAuth; correct or clear it and reconnect. The interactive sign-in flow still requires validation in a live Claude Code session.
+
+**Troubleshooting:** “Needs authentication” does not prove the saved token is absent. Claude Code can also drop the helper's headers after a failure, such as missing `python3`, Python older than 3.9, malformed `.env` quoting, or an invalid URL. Check helper stderr and `python3 --version`, correct the saved assignments, then reconnect in `/mcp`. The helper reports failures without credential contents or tracebacks. Do not print its stdout: successful output can contain the full token.
 
 | Tool | Description |
 |------|-------------|
@@ -119,13 +126,21 @@ REST examples load credentials and make requests inside a subshell. Saved values
 
 During `/browserless:auth` setup, the validation request checks the newly saved token and URL, ignoring environment overrides for that check only. Subsequent REST requests still prefer the environment.
 
+For MCP, the helper reloads the saved file on reconnect, without executing it as a shell script. Store literal `KEY=value` assignments; shell-quoted values are supported, shell commands and variable substitutions are not evaluated. Use the saved file because Claude Code may remove credential variables from the helper's environment. REST validation and `/browserless:auth status` do not verify the MCP connection—use `/mcp` for that.
+
+`/browserless:auth clear` removes the saved file only. Reconnect in `/mcp` to reload headers. Existing visible environment overrides require removing the override and restarting Claude Code. Existing OAuth authentication must be cleared separately in `/mcp` to sign out.
+
 ## API Regions
 
-| Region | URL |
-|--------|-----|
-| SFO (US West, default) | `https://production-sfo.browserless.io` |
-| LON (Europe) | `https://production-lon.browserless.io` |
-| Custom | Any self-hosted or custom Browserless URL |
+| Region | URL | Supported by |
+|--------|-----|--------------|
+| SFO (US West, default) | `https://production-sfo.browserless.io` | REST skills and hosted MCP |
+| LON (London) | `https://production-lon.browserless.io` | REST skills and hosted MCP |
+| AMS (Amsterdam) | `https://production-ams.browserless.io` | REST skills and hosted MCP |
+| Other hosted | Valid `browserless.io` URLs, including `https://chrome.browserless.io` and dedicated subdomains | REST skills and hosted MCP |
+| Self-hosted | Arbitrary non-Browserless URLs | REST skills only |
+
+The helper strips trailing slashes from supported hosted URLs before forwarding them, so REST-backed MCP tools do not construct double-slash paths. Hosted URLs must use **HTTPS**, without credentials, query strings or fragments. Arbitrary self-hosted URLs stay in the saved file for REST; the helper omits that URL header and warns that hosted MCP will use SFO. A self-hosted-only token will not authenticate to hosted Browserless. The helper's no-token flow sends no empty Bearer header and does not depend on the server's empty-Bearer fix being released first.
 
 ## Plugin Structure
 
@@ -137,6 +152,7 @@ hooks/
   hooks.json            # SessionStart hook config
 scripts/
   check-auth.sh         # Warns if token is not configured
+  mcp-headers.py        # Dynamic MCP headers from saved credentials (Python 3.9+)
 skills/
   auth/SKILL.md         # Authentication setup
   agent/SKILL.md        # Interactive browser session (MCP-backed)
@@ -166,7 +182,7 @@ Most skills map to a Browserless REST API endpoint; `agent` is served by the bun
 
 ## Tests
 
-Run `python3 scripts/test-credentials.py` with bash and zsh installed. It executes the documented credential snippets with a temporary home directory and no network requests.
+Run `python3 scripts/test-credentials.py` with bash and zsh installed. It executes the documented REST snippets and the configured MCP header helper with a temporary home directory and no network requests.
 
 ## License
 

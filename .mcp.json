@@ -3,9 +3,7 @@
     "browserless": {
       "type": "http",
       "url": "https://mcp.browserless.io/mcp",
-      "headers": {
-        "Authorization": "Bearer ${BROWSERLESS_TOKEN}"
-      }
+      "headersHelper": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/mcp-headers.py\""
     }
   }
 }

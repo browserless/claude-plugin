@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run documented credential snippets offline. Requires Python 3, bash and zsh."""
+import json
 import os
 from pathlib import Path
 import re
@@ -56,7 +57,8 @@ def run(shell, code, exported, saved):
         if saved is not None:
             config = Path(home) / ".browserless" / ".env"
             config.parent.mkdir()
-            config.write_text("".join(f"{key}={shlex.quote(value)}\n" for key, value in saved.items()))
+            config.write_text(saved if isinstance(saved, str) else
+                              "".join(f"{key}={shlex.quote(value)}\n" for key, value in saved.items()))
         env = {"HOME": home, "PATH": os.environ["PATH"], **exported}
         return subprocess.run([shell, "-f", "-c", code], env=env, capture_output=True, text=True, check=True).stdout
 
@@ -101,6 +103,82 @@ class CredentialsTest(unittest.TestCase):
         for shell in ("bash", "zsh"):
             with self.subTest(shell=shell):
                 self.assertIn("API URL: https://exported.example", run(shell, status, {URL: EXPORTED[URL]}, SAVED))
+
+    def test_mcp_headers(self):
+        # Exercise the configured command: static Authorization would disable OAuth
+        # before the helper's output could enable it.
+        config = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["browserless"]
+        self.assertFalse(any(key.lower() == "authorization" for key in config.get("headers", {})))
+        command = config.get("headersHelper")
+        self.assertIsNotNone(command, "MCP must load saved credentials at connection time")
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT))
+        for name, exported, saved, expected in (
+            ("OAuth without file", {}, None, {}),
+            ("OAuth empty token", {TOKEN: "  "}, {TOKEN: ""}, {}),
+            ("saved token with filtered environment", {}, {TOKEN: EXPORTED[TOKEN]},
+             {"Authorization": "Bearer " + EXPORTED[TOKEN]}),
+            ("independent overrides", {TOKEN: "override"}, {TOKEN: "saved", URL: "https://chrome.browserless.io/"},
+             {"Authorization": "Bearer override", "x-browserless-api-url": "https://chrome.browserless.io"}),
+            ("empty environment falls back", {TOKEN: "", URL: ""}, {TOKEN: "saved", URL: "https://production-ams.browserless.io/"},
+             {"Authorization": "Bearer saved", "x-browserless-api-url": "https://production-ams.browserless.io"}),
+            ("path prefix and repeated trailing slashes", {}, {URL: "https://dedicated.browserless.io/api///"},
+             {"x-browserless-api-url": "https://dedicated.browserless.io/api"}),
+            ("indented export", {}, "  export BROWSERLESS_TOKEN=saved\n\texport BROWSERLESS_API_URL=https://production-lon.browserless.io/\n",
+             {"Authorization": "Bearer saved", "x-browserless-api-url": "https://production-lon.browserless.io"}),
+            ("dedicated override", {URL: "https://dedicated.browserless.io"}, {TOKEN: "saved", URL: "https://production-lon.browserless.io"},
+             {"Authorization": "Bearer saved", "x-browserless-api-url": "https://dedicated.browserless.io"}),
+            ("self-hosted remains REST only", {}, {TOKEN: "saved", URL: "https://self-hosted.example"},
+             {"Authorization": "Bearer saved"}),
+            ("lookalike is not hosted", {}, {URL: "https://browserless.io.evil.example"}, {}),
+            ("OAuth retains selected region", {}, {URL: "https://production-lon.browserless.io/"},
+             {"x-browserless-api-url": "https://production-lon.browserless.io"}),
+        ):
+            with self.subTest(case=name):
+                self.assertEqual(json.loads(run("bash", command, exported, saved)), expected)
+
+    def test_mcp_reconnect_reads_changed_file(self):
+        config = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["browserless"]
+        command = config.get("headersHelper")
+        self.assertIsNotNone(command, "MCP must reload credentials on reconnect")
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT))
+        code = command + "\nprintf '%s\\n' 'BROWSERLESS_TOKEN=updated' > ~/.browserless/.env\n" + command
+        output = run("bash", code, {}, {TOKEN: "initial"}).splitlines()
+        self.assertEqual([json.loads(line) for line in output],
+                         [{"Authorization": "Bearer initial"}, {"Authorization": "Bearer updated"}])
+
+    def test_mcp_rejects_invalid_headers_without_exposing_credentials(self):
+        command = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["browserless"]["headersHelper"]
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT))
+        for overrides in (
+            {TOKEN: "private-token\r\ninjected"},
+            {TOKEN: "private-token", URL: "https://production-lon.browserless.io/?token=private-token"},
+            {TOKEN: "private-token", URL: "https://private-token@production-lon.browserless.io"},
+            {TOKEN: "private-token", URL: "https://evil.example\\dedicated.browserless.io"},
+            {TOKEN: "private-token", URL: "http://production-lon.browserless.io"},
+        ):
+            with self.subTest(overrides=list(overrides)):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    run("bash", command, overrides, None)
+                self.assertEqual(failure.exception.stdout, "")
+                self.assertNotIn("private-token", failure.exception.stderr)
+
+    def test_mcp_helper_errors_are_sanitized(self):
+        command = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["browserless"]["headersHelper"]
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT))
+        with self.assertRaises(subprocess.CalledProcessError) as malformed:
+            run("bash", command, {}, "BROWSERLESS_TOKEN='private-token\n")
+        probe = f"""import runpy
+from unittest.mock import patch
+with patch('pathlib.Path.read_text', side_effect=RuntimeError('private-token')):
+    runpy.run_path({str(ROOT / 'scripts/mcp-headers.py')!r}, run_name='__main__')
+"""
+        with self.assertRaises(subprocess.CalledProcessError) as unexpected:
+            run("bash", "python3 -c " + shlex.quote(probe), {}, None)
+        for failure in (malformed, unexpected):
+            self.assertEqual(failure.exception.stdout, "")
+            self.assertIn("Cannot load MCP credentials", failure.exception.stderr)
+            self.assertNotIn("private-token", failure.exception.stderr)
+            self.assertNotIn("Traceback", failure.exception.stderr)
 
 
 if __name__ == "__main__":
