@@ -59,10 +59,13 @@ The agent handles the hard parts automatically — cookie consent, captchas, log
 
 ## Auth
 
-MCP uses the plugin's `headersHelper` (requires Python 3.9+) to read `~/.browserless/.env` on each connection. Run `/browserless:auth`, then reconnect Browserless in `/mcp`; saved credentials need no shell-profile exports or new launch terminal. Non-empty environment overrides apply when visible to the helper, but current Claude Code filters token-like environment variables from plugin helpers, so the saved file is the reliable MCP token source. Never display the helper's JSON output because it can contain credentials.
+The MCP server authenticates with the plugin's options, not with `~/.browserless/.env`:
 
-Valid HTTPS `browserless.io` URLs, including SFO/LON/AMS and dedicated subdomains, are passed through `x-browserless-api-url` with trailing slashes removed. With no URL, MCP uses SFO. Arbitrary self-hosted URLs remain REST-only; the helper warns and omits that override, so hosted MCP uses SFO. With no token, the helper omits `Authorization`, allowing Claude Code to offer OAuth sign-in. An invalid configured token must be corrected or cleared before reconnecting; it does not fall back to OAuth.
+- **Browserless API token** (`browserless_token`): required. Claude Code stores it in your system's secure credential store and sends it as the `Authorization` header.
+- **Browserless API URL** (`api_url`): the hosted region, sent as `x-browserless-api-url`. Defaults to SFO (`https://production-sfo.browserless.io`). Use `https://production-lon.browserless.io`, `https://production-ams.browserless.io`, or another `https://*.browserless.io` URL such as a dedicated deployment. The hosted MCP server rejects self-hosted URLs, so keep those for the REST skills only.
 
-If the `browserless_agent` tool isn't listed, the MCP server isn't connected — run `/mcp` to check, and ensure the plugin's `.mcp.json` is loaded.
+To set or change them, run `/plugin configure browserless@browserless`, then restart Claude Code or reconnect Browserless in `/mcp` to apply them. From a shell, pipe a JSON object to `claude plugin configure browserless@browserless --values-stdin`. Never print the token.
 
-If `/mcp` shows **Needs authentication** despite saved credentials, check helper stderr, `python3 --version` (3.9+ required), and the saved file's assignment quoting. Missing Python or a helper error can make Claude Code drop the headers and offer OAuth; this state alone does not prove there is no saved token. Never display the helper's stdout to diagnose it.
+If the `browserless_agent` tool isn't listed, the MCP server isn't connected. Claude Code doesn't start the Browserless server until the required API token is set, so if Browserless is missing from `/mcp`, run `/plugin configure browserless@browserless`, enter the token, and restart Claude Code or reconnect in `/mcp`.
+
+If `/mcp` reports that the server rejected the configured Authorization header, the token is invalid, or the API URL option isn't an `https://*.browserless.io` URL. Set it with `/plugin configure browserless@browserless` and reconnect. Because the plugin always sends an `Authorization` header, Claude Code doesn't offer OAuth sign-in for this server.
