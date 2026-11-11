@@ -27,6 +27,8 @@ cd claude-plugin
 claude --plugin-dir .
 ```
 
+A plugin loaded with `--plugin-dir` has the id `browserless@inline`, so set its options with `/plugin configure browserless@inline` instead of `browserless@browserless`.
+
 ## Setup
 
 ### 1. Get a Browserless API token
@@ -104,7 +106,8 @@ The MCP server authenticates with the plugin's options. Claude Code sends the **
 **Troubleshooting:**
 
 - **Browserless is missing from `/mcp`:** Claude Code doesn't start the server until the required API token is set. Run `/plugin configure browserless@browserless`, enter the token, then restart Claude Code.
-- **`/mcp` reports that the server rejected the configured Authorization header:** the token is invalid, or the **Browserless API URL** option isn't an `https://*.browserless.io` URL. Fix it with `/plugin configure browserless@browserless` and reconnect Browserless in `/mcp`.
+- **`/mcp` reports that the server rejected the configured Authorization header:** the **Browserless API URL** option isn't a valid `https://*.browserless.io` URL. Claude Code names the header, but the server refused the URL. Fix it with `/plugin configure browserless@browserless` and reconnect Browserless in `/mcp`.
+- **Browserless connects, but tool calls fail with `401: Invalid API key`:** the API token is wrong. The server checks the token on each tool call, not when connecting. Replace it with `/plugin configure browserless@browserless` and reconnect.
 
 | Tool | Description |
 |------|-------------|
