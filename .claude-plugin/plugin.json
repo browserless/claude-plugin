@@ -17,7 +17,7 @@
     "browserless_token": {
       "type": "string",
       "title": "Browserless API token",
-      "description": "API token for the hosted Browserless MCP server, from your account at https://www.browserless.io/account/home. Stored in your system's secure credential store.",
+      "description": "API token for the hosted Browserless MCP server, from your account at https://www.browserless.io/account/home. Claude Code stores it as a secret, not in settings.json.",
       "sensitive": true,
       "required": true
     },

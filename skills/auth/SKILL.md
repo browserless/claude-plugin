@@ -50,7 +50,7 @@ curl -s -X POST "${BROWSERLESS_API_URL}/map?token=${BROWSERLESS_TOKEN}" \
 If the response contains `"success": true`, tell the user auth is configured and working. If it fails (401, 403, or connection error), tell them the token may be invalid and offer to retry.
 
 5. Explain that the saved file is used by the REST skills only. The MCP agent (`/browserless:agent`) reads the plugin's own options instead, which this skill can't set. Tell the user to run `/plugin configure browserless@browserless` and enter:
-   - **Browserless API token**: the same token. Claude Code stores it in the system's secure credential store.
+   - **Browserless API token**: the same token. Claude Code stores it as a secret, not in `settings.json`.
    - **Browserless API URL**: the same region URL, if it's a hosted `https://*.browserless.io` URL. For a self-hosted URL, keep the default there, because the hosted MCP server rejects self-hosted URLs and a self-hosted-only token doesn't work on hosted Browserless. Clearly report this limitation for a self-hosted URL.
 
    Then restart Claude Code, or reconnect Browserless in `/mcp` if it's already listed. Do not claim MCP authentication or region is verified by the REST validation request.

@@ -37,7 +37,7 @@ Sign up for free at [browserless.io](https://www.browserless.io) and copy your A
 
 When you install or enable the plugin in `/plugin`, Claude Code asks for two plugin options:
 
-- **Browserless API token** (required): used by the hosted MCP server, which powers `/browserless:agent`. Claude Code stores it in your system's secure credential store, not in `settings.json`.
+- **Browserless API token** (required): used by the hosted MCP server, which powers `/browserless:agent`. Claude Code stores it with its own credentials, never in `settings.json`: in the macOS Keychain on macOS, and in Claude Code's `.credentials.json` file (readable only by your user) on Linux and Windows.
 - **Browserless API URL**: the hosted region the MCP server uses. Defaults to `https://production-sfo.browserless.io`. See [API Regions](#api-regions).
 
 To change them later, run `/plugin configure browserless@browserless`, then restart Claude Code or reconnect Browserless in `/mcp` to apply them. If you install from a shell with `claude plugin install`, pass the values with `--config KEY=VALUE`, or pipe a JSON object to `claude plugin configure browserless@browserless --values-stdin` afterward.

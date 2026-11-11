@@ -61,7 +61,7 @@ The agent handles the hard parts automatically — cookie consent, captchas, log
 
 The MCP server authenticates with the plugin's options, not with `~/.browserless/.env`:
 
-- **Browserless API token** (`browserless_token`): required. Claude Code stores it in your system's secure credential store and sends it as the `Authorization` header.
+- **Browserless API token** (`browserless_token`): required. Claude Code stores it as a secret, not in `settings.json`, and sends it as the `Authorization` header.
 - **Browserless API URL** (`api_url`): the hosted region, sent as `x-browserless-api-url`. Defaults to SFO (`https://production-sfo.browserless.io`). Use `https://production-lon.browserless.io`, `https://production-ams.browserless.io`, or another `https://*.browserless.io` URL such as a dedicated deployment. The hosted MCP server rejects self-hosted URLs, so keep those for the REST skills only.
 
 To set or change them, run `/plugin configure browserless@browserless`, then restart Claude Code or reconnect Browserless in `/mcp` to apply them. From a shell, pipe a JSON object to `claude plugin configure browserless@browserless --values-stdin`. Never print the token.
