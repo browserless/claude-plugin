@@ -7,6 +7,16 @@ description: Drive an interactive browser session — navigate, snapshot the pag
 
 This skill is backed by the **Browserless MCP server** (bundled with this plugin via `.mcp.json`), not a one-shot REST call. It can keep a live browser session when explicitly requested, so use it when the task is interactive or multi-step. For single-shot work prefer `/browserless:smart-scrape` (scrape, screenshot, pdf, links) instead.
 
+## Saving artifacts
+
+For files to keep, use saved-download metadata; for an agent screenshot set `params.toDisk: true`. Inline screenshots are for intentional visual analysis and enter model context.
+
+For a result marked `delivery: mcp-resource`, use `ReadMcpResourceTool` with the connected Browserless server name and its exact `resourceUri` only in the verified saving profile: Claude Code 2.1.327 Linux CLI, explicit resource-read tool, files up to 10 MiB. This profile saves the blob to disk and returns `blobSavedTo` instead of putting the bytes in the model request. A visible resource-read tool alone does not prove another version or client saves safely.
+
+Check the returned `blobSavedTo` file exists and its byte count matches the descriptor, then copy it to the user's destination and report that path. A URI or handle is not a local file and does not authorize access: retrieval uses the configured MCP connection's authentication. Reads are single-use across MCP and HTTP, expire after 15 minutes, and may expire earlier when the session ends.
+
+If the profile is unverified, the saving tool is unavailable, the server returns legacy download instructions, or the file exceeds the native limit, report unsupported saving before reading the resource. Do not read credentials from files or the environment, ask for a token in chat, substitute a shell download, or bring base64/inline bytes into context. After a consumed transfer fails, report the failure; do not automatically rerun browser actions to regenerate the file.
+
 ## How to run it
 
 Call the `browserless_agent` MCP tool. It connects to a real Chromium session at `https://mcp.browserless.io`. Request a page **snapshot** (accessibility tree + element refs) explicitly; do not assume each action returns one.

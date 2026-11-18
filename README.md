@@ -103,6 +103,18 @@ Installing this plugin also registers the hosted **Browserless MCP server** (`ht
 
 The MCP server authenticates with the plugin's options. Claude Code sends the **Browserless API token** as the `Authorization` header and the **Browserless API URL** as `x-browserless-api-url`. The plugin runs no local scripts or helpers. Because an `Authorization` header is always configured, Claude Code doesn't offer OAuth sign-in for this server: set the token instead.
 
+### Authenticated artifact saving
+
+The plugin requests native artifact delivery with the fixed, non-secret header `x-browserless-artifact-delivery: mcp-resource`. Reconnect after changing this preference; it is fixed for each MCP session. This header grants no access and does not certify a client's saving behavior.
+
+**Release prerequisite:** deploy a server that supports this contract and pass an authenticated production smoke test before releasing this plugin change. An older server may ignore the header and return legacy instructions; the agent skill treats that as unsupported saving, not permission to fetch local credentials.
+
+Verified saving profile: Claude Code **2.1.327 Linux CLI**, using explicit `ReadMcpResourceTool`, with decoded files **up to 10 MiB**. The client saves binary resources to disk and reports `blobSavedTo`; the agent verifies the file and copies it to your destination. PDF, ZIP, PNG and saved JSON use the same binary saving path. Intentional inline image analysis still enters model context. Other versions, Claude Desktop, and other MCP clients are not certified by this profile.
+
+Artifacts remain authenticated and owner-scoped. The URI is an identifier, not a bearer link. MCP and existing authenticated HTTP downloads share single-use consumption, a 15-minute expiry, and earlier session cleanup. Claude Code rejects SSE events above 16 MB, so the native route has a conservative 10 MiB limit; the existing HTTP route retains its 50 MiB limit. Larger files or unavailable saving tools are reported as unsupported without reading the resource, fetching credentials, or regenerating browser work automatically.
+
+This stages the agent's download path only. The REST skills below still use local credentials; their migration and vendor directory approval remain separate work.
+
 **Troubleshooting:**
 
 - **Browserless is missing from `/mcp`:** Claude Code doesn't start the server until the required API token is set. Run `/plugin configure browserless@browserless`, enter the token, then restart Claude Code.
