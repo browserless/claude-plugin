@@ -103,6 +103,22 @@ Installing this plugin also registers the hosted **Browserless MCP server** (`ht
 
 The MCP server authenticates with the plugin's options. Claude Code sends the **Browserless API token** as the `Authorization` header and the **Browserless API URL** as `x-browserless-api-url`. The plugin runs no local scripts or helpers. Because an `Authorization` header is always configured, Claude Code doesn't offer OAuth sign-in for this server: set the token instead.
 
+### Authenticated artifact saving
+
+The plugin requests native artifact delivery with the fixed, non-secret header `x-browserless-artifact-delivery: mcp-resource`. Reconnect after changing this preference; it is fixed for each MCP session. This header grants no access and does not certify a client's saving behavior.
+
+**Release prerequisite:** deploy a server that supports this contract and pass an authenticated production smoke test before releasing this plugin change. An older server may ignore the header and return legacy instructions; the agent skill treats that as unsupported saving, not permission to fetch local credentials.
+
+Saving requires Claude Code CLI **2.1.327 or newer on Linux or macOS**, an explicit `ReadMcpResourceTool` that saves binary resources to disk and returns only `blobSavedTo` metadata, and decoded files **up to 10 MiB**. Version alone is not a safety guarantee: unknown or inline resource handling is unsupported. Linux 2.1.327 was exercised with PDF, ZIP, PNG, saved JSON and size boundaries using a deterministic model; macOS 2.1.327 has a reported real-model exact-byte 1 MiB save. Neither establishes safety on every later release. Claude Desktop and other MCP clients remain unverified.
+
+Checking the client version may also require shell permission for `claude --version`. If that approval is unavailable, a headless run may stop before fetching the resource. Interactive users may see this additional approval prompt before the copy prompt. A `blobSavedTo` result confirms disk saving only after a read; it is not a substitute for establishing safe client handling before the first read.
+
+The agent checks file existence and byte count through metadata, then copies the file to your destination. **Copying from Claude Code's sensitive `~/.claude` directory requires permission approval.** If approval is denied or unavailable, including headless runs, saving stops and reports the limitation. The skill forbids `Read`, `cat`, image viewers, or other content inspection of `blobSavedTo` or the destination copy as a save fallback. With the revised skill text explicitly loaded, Linux CLI 2.1.327 and Sonnet 4.6 stopped safely in three denied-copy runs and saved exact bytes in three explicitly approved controls, with no image payload in 21 captured model requests. The old text also stopped safely on Linux, so Linux did not reproduce the originally reported macOS leak. Subsequent operator-reported real-model macOS verification confirmed three headless denied-copy runs with `Read` available: each stopped after the protected-path refusal, with no `Read` call, base64 or token in the transcripts. Two approved-copy controls saved a byte-exact 1 MiB file and a valid PNG, with zero `Read` calls. Intentional inline image analysis is separate and still enters model context.
+
+Artifacts remain authenticated and owner-scoped. The URI is an identifier, not a bearer link. MCP and existing authenticated HTTP downloads share single-use consumption, a 15-minute expiry, and earlier session cleanup. Claude Code rejects SSE events above 16 MB, so the native route has a conservative 10 MiB limit; the existing HTTP route retains its 50 MiB limit. Larger files or unavailable saving tools are reported as unsupported without reading the resource, fetching credentials, or regenerating browser work automatically.
+
+This stages the agent's download path only. The REST skills below still use local credentials; their migration and vendor directory approval remain separate work.
+
 **Troubleshooting:**
 
 - **Browserless is missing from `/mcp`:** Claude Code doesn't start the server until the required API token is set. Run `/plugin configure browserless@browserless`, enter the token, then restart Claude Code.

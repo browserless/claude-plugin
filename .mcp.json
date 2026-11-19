@@ -5,7 +5,8 @@
       "url": "https://mcp.browserless.io/mcp",
       "headers": {
         "Authorization": "Bearer ${user_config.browserless_token}",
-        "x-browserless-api-url": "${user_config.api_url}"
+        "x-browserless-api-url": "${user_config.api_url}",
+        "x-browserless-artifact-delivery": "mcp-resource"
       }
     }
   }

@@ -7,6 +7,18 @@ description: Drive an interactive browser session — navigate, snapshot the pag
 
 This skill is backed by the **Browserless MCP server** (bundled with this plugin via `.mcp.json`), not a one-shot REST call. It can keep a live browser session when explicitly requested, so use it when the task is interactive or multi-step. For single-shot work prefer `/browserless:smart-scrape` (scrape, screenshot, pdf, links) instead.
 
+## Saving artifacts
+
+For files to keep, use saved-download metadata; for an agent screenshot set `params.toDisk: true`. Inline screenshots are for intentional visual analysis and enter model context.
+
+For a result marked `delivery: mcp-resource`, the saving path requires Claude Code CLI 2.1.327 or newer on Linux or macOS, an explicit `ReadMcpResourceTool` that saves binary resources to disk and returns only `blobSavedTo` metadata, and files up to 10 MiB. Use that tool with the connected Browserless server name and exact `resourceUri`. Version alone and a visible resource-read tool do not prove safe handling: if the installed client is known to inline resource bytes or its disk-saving behavior is unknown, report unsupported saving before reading the resource. Disk saving was exercised on 2.1.327 on Linux and macOS; later versions must retain the same behavior.
+
+Treat `blobSavedTo` as an opaque file to copy, never as content to inspect. Never use `Read`, `cat`, an image viewer, or any other open/read operation on that file or its copy to complete a save, even if copying fails. Check existence and byte count using filesystem metadata only, then copy to the user's destination and report that path only after the copy succeeds. The source is under Claude Code's sensitive `~/.claude` directory, so copying requires permission approval; explain that before attempting it. If permission is denied or unavailable (including headless runs), or the copy otherwise fails, stop the save workflow and report the failure and required approval. Do not bypass the denial, inspect the file, or switch tools to expose its contents.
+
+A URI or handle is not a local file and does not authorize access: retrieval uses the configured MCP connection's authentication. Reads are single-use across MCP and HTTP, expire after 15 minutes, and may expire earlier when the session ends.
+
+If the saving requirements are unmet, the saving tool is unavailable, the server returns legacy download instructions, or the file exceeds the native limit, report unsupported saving before reading the resource. Do not read credentials from files or the environment, ask for a token in chat, substitute a shell download, or bring base64/inline bytes into context. After a consumed transfer fails, report the failure; do not automatically rerun browser actions to regenerate the file.
+
 ## How to run it
 
 Call the `browserless_agent` MCP tool. It connects to a real Chromium session at `https://mcp.browserless.io`. Request a page **snapshot** (accessibility tree + element refs) explicitly; do not assume each action returns one.
