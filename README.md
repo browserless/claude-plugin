@@ -173,7 +173,6 @@ Set the region with the **Browserless API URL** plugin option. Use an `https://`
 .claude-plugin/
   plugin.json           # Plugin metadata and options (token, API URL)
   marketplace.json      # Marketplace catalog for /plugin marketplace add
-  icon.png              # Listing icon
 .mcp.json               # Hosted Browserless MCP server (adds browserless_agent + tools)
 skills/
   auth/SKILL.md         # Authentication setup
