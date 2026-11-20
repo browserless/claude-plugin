@@ -1,206 +1,32 @@
 ---
 name: crawl
-description: Crawl a website starting from a seed URL, following links to configurable depth while scraping all discovered pages. Use when the user wants to crawl an entire website, scrape multiple pages, extract content from many pages at once, or do a deep site-wide scrape.
+description: Crawl a website through Browserless MCP to extract content from multiple pages. Use when the user wants site-wide scraping, link-following to a chosen depth, or content from many pages.
 ---
 
 # Crawl
 
-Use the Browserless `/crawl` REST API to asynchronously crawl a website, following links to a configurable depth and scraping every discovered page.
+Call only `mcp__plugin_browserless_browserless__browserless_crawl` from the `plugin:browserless:browserless` server. Never substitute a same-named tool on another server: it may use a different account, region, or artifact mode. The user's request is: "$ARGUMENTS"
 
-The user's request is: "$ARGUMENTS"
+If this exact plugin tool is missing, stop and give the configuration guidance below, even if another Browserless connection is available. For a self-hosted request, explain that it is unsupported and ask before doing any work on hosted Browserless; do not offer or make REST calls as an alternative.
 
-## How to call
+If the tool is unavailable or authentication fails, stop tool work and tell the user to run `/plugin configure browserless@browserless` (`browserless@inline` for `--plugin-dir`), enter the hosted token in the sensitive configuration UI, then reconnect in `/mcp` or restart Claude Code. Do not probe or configure the connection through the shell, read local credentials, ask for a token in chat, invent MCP configuration, or fall back to REST authentication. Arbitrary self-hosted endpoints and self-hosted-only tokens are unsupported; do not send those tokens to hosted MCP.
 
-Make a POST request to start the crawl, then poll for results:
-
-```
-POST ${BROWSERLESS_API_URL}/crawl?token=${BROWSERLESS_TOKEN}        # Start crawl
-GET  ${BROWSERLESS_API_URL}/crawl/{id}?token=${BROWSERLESS_TOKEN}   # Check status / get results
-GET  ${BROWSERLESS_API_URL}/crawl?token=${BROWSERLESS_TOKEN}        # List all crawls
-DELETE ${BROWSERLESS_API_URL}/crawl/{id}?token=${BROWSERLESS_TOKEN} # Cancel a crawl
-```
-
-## Authentication
-
-Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-# Make the request here, before leaving the subshell.
-)
-```
-
-The token is resolved in this order:
-1. `$BROWSERLESS_TOKEN` environment variable (if already set in the shell)
-2. `~/.browserless/.env` file (written by `/browserless:auth`)
-3. If neither exists, ask the user to run `/browserless:auth` to configure their token
-
-For the API URL, use `$BROWSERLESS_API_URL` if set, otherwise default to `https://production-sfo.browserless.io`.
-
-### Request body (POST /crawl)
+## Tool arguments
 
 ```json
 {
-  "url": "<seed URL - required, must be http:// or https://>",
-  "limit": 100,
-  "maxDepth": 5,
-  "scrapeOptions": {
-    "formats": ["markdown"]
-  }
+  "url": "https://example.com",
+  "limit": 50,
+  "maxDepth": 3,
+  "scrapeOptions": { "formats": ["markdown"], "onlyMainContent": true },
+  "waitForCompletion": true
 }
 ```
 
-#### Core parameters:
-- `url` (string, required): The starting URL to crawl.
-- `limit` (number, optional, default `100`): Maximum number of pages to crawl (max depends on your plan).
-- `maxDepth` (number, optional, default `5`): How many link-levels deep to follow from the seed URL (0-20).
-- `maxRetries` (number, optional, default `1`): Retry attempts per failed page (0-5).
-- `delay` (number, optional, default `200`): Milliseconds to wait between requests (0-10000).
+The server starts the crawl, polls, retrieves results and fetches page content when `waitForCompletion` is true (the default). Do not reproduce that loop with curl. Bound the crawl to the user's requested scope using `limit`, `maxDepth`, `allowExternalLinks`, `allowSubdomains`, `includePaths`, and `excludePaths`. `sitemap` accepts `auto`, `force`, or `skip`. Other supported options include `maxRetries`, `delay`, `timeout`, and `profile`.
 
-#### Link-following controls:
-- `allowExternalLinks` (boolean, optional, default `false`): Follow links to external domains.
-- `allowSubdomains` (boolean, optional, default `false`): Follow links to subdomains.
-- `includePaths` (array of strings, optional): Regex patterns — only crawl URLs matching these patterns.
-- `excludePaths` (array of strings, optional): Regex patterns — skip URLs matching these patterns.
+`scrapeOptions.formats` accepts `markdown`, `html`, or `rawText`. Supported scrape options include `onlyMainContent`, `includeTags`, `excludeTags`, `waitFor`, `headers`, and `timeout`. Timing values are in milliseconds. Use `pollInterval` and `maxWaitTime` to control server-side waiting when needed.
 
-#### Sitemap handling:
-- `sitemap` (string, optional, default `"auto"`): How to use the site's sitemap.
-  - `"auto"` - Try sitemap first, fall back to link extraction.
-  - `"force"` - Only use sitemap; fail if unavailable.
-  - `"skip"` - Ignore sitemap entirely; follow links only.
+Prefer `waitForCompletion: true` when the user expects results. With false, the tool returns a crawl ID immediately, but the current MCP tool does not expose listing, cancellation, or resuming/status-checking an existing crawl. If asked for one of those operations, or if waiting times out, report the limitation and any returned ID; do not invent an operation parameter, restart the crawl automatically, or read local credentials to poll REST. Webhook configuration is not exposed by this tool.
 
-#### `scrapeOptions` (object, optional): Per-page scrape configuration.
-- `formats` (array of strings, default `["markdown"]`): Output formats — `"markdown"`, `"html"`, `"rawText"`.
-- `onlyMainContent` (boolean, default `true`): Extract only primary content, skip nav/footer/sidebar.
-- `includeTags` (array of strings, optional): Only include content from these HTML selectors.
-- `excludeTags` (array of strings, optional): Exclude content from these HTML selectors (e.g., `"nav"`, `"footer"`).
-- `waitFor` (number, default `0`): Milliseconds to wait after page load before scraping (0-30000).
-- `headers` (object, optional): Custom HTTP headers to send with each request.
-- `timeout` (number, default `30000`): Navigation timeout in milliseconds (1000-180000).
-
-#### Webhook (object, optional): Get notified instead of polling.
-- `url` (string, required): HTTPS endpoint to receive events.
-- `events` (array of strings, optional, default `["completed"]`): Events to subscribe to — `"page"`, `"completed"`, `"failed"`.
-
-### Response (POST /crawl — start)
-
-```json
-{
-  "success": true,
-  "id": "crawl_abc123def456",
-  "url": "https://production-sfo.browserless.io/crawl/crawl_abc123def456"
-}
-```
-
-### Response (GET /crawl/{id} — status & results)
-
-```json
-{
-  "status": "completed",
-  "total": 15,
-  "completed": 15,
-  "failed": 0,
-  "expiresAt": "2025-07-01T12:00:00.000Z",
-  "next": null,
-  "data": [
-    {
-      "status": "completed",
-      "contentUrl": "<pre-signed S3 URL with scraped content>",
-      "metadata": {
-        "title": "Page Title",
-        "description": "Meta description",
-        "language": "en",
-        "sourceURL": "https://example.com/page",
-        "statusCode": 200,
-        "scrapedAt": "2025-07-01T10:30:00.000Z",
-        "error": null
-      }
-    }
-  ]
-}
-```
-
-Key fields:
-- `status`: `"in-progress"`, `"completed"`, `"failed"`, or `"cancelled"`.
-- `total`, `completed`, `failed`: Progress counters.
-- `data`: Array of scraped pages. Each has a `contentUrl` (pre-signed S3 URL, expires in 1 hour) and `metadata`.
-- `next`: Pagination URL if there are more results.
-- `expiresAt`: When results expire (24 hours after completion).
-
-## Execution
-
-The crawl API is asynchronous. Start the crawl, then poll for results:
-
-### Step 1: Start the crawl
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl?token=$BROWSERLESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com",
-    "maxDepth": 3,
-    "limit": 50,
-    "scrapeOptions": {
-      "formats": ["markdown"],
-      "onlyMainContent": true
-    }
-  }'
-)
-```
-
-Save the `id` from the response.
-
-### Step 2: Poll for results
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl/CRAWL_ID?token=$BROWSERLESS_TOKEN"
-)
-```
-
-Check the `status` field. If `"in-progress"`, wait a few seconds and poll again. If `"completed"`, the results are in `data`.
-
-### Step 3: Fetch page content
-
-Each result's `contentUrl` is a pre-signed URL to the scraped content. Fetch it directly:
-
-```bash
-curl -s "PRE_SIGNED_URL"
-```
-
-Present a summary of crawled pages (count, titles, URLs) and offer to show content for specific pages. If the crawl is still in progress, show the progress (completed/total) and continue polling.
-
-### Listing and cancelling crawls
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-# List all crawls
-curl -s "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl?token=$BROWSERLESS_TOKEN"
-
-# Cancel a crawl
-curl -s -X DELETE "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/crawl/CRAWL_ID?token=$BROWSERLESS_TOKEN"
-)
-```
-
-**Note**: The Crawl API is available on Cloud plans only. Results expire 24 hours after completion. Content URLs expire 1 hour after generation.
+Summarize completion status, page counts, failures and returned content. Results may be truncated: the server fetches full content for at most 50 completed pages and caps each page's displayed content. Do not claim that the returned text is a complete archive of the crawl. For URL discovery without page content, use `/browserless:map`.

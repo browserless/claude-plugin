@@ -1,102 +1,29 @@
 ---
 name: smart-scrape
-description: Scrape a webpage using Browserless smart-scrape API with cascading strategies (HTTP fetch, proxy, headless browser, captcha solving). Returns content in multiple formats including markdown, HTML, screenshot, PDF, and links. Use when the user wants to scrape, read, or extract content from a webpage.
+description: Scrape one webpage through Browserless MCP. Use when the user wants page text, HTML, links, structured extraction, a summary, a screenshot, or a PDF; use crawl for content across many pages.
 ---
 
 # Smart Scrape
 
-Use the Browserless `/smart-scrape` REST API to scrape a webpage. The API automatically tries cascading strategies: direct HTTP fetch, proxy, headless browser, and browser with captcha solving.
+Call only `mcp__plugin_browserless_browserless__browserless_smartscraper` from the `plugin:browserless:browserless` server. Never substitute a same-named tool on another server: it may use a different account, region, or artifact mode. The user's request is: "$ARGUMENTS"
 
-The user's request is: "$ARGUMENTS"
+If this exact plugin tool is missing, stop and give the configuration guidance below, even if another Browserless connection is available. For a self-hosted request, explain that it is unsupported and ask before doing any work on hosted Browserless; do not offer or make REST calls as an alternative.
 
-## How to call
+If the tool is unavailable or authentication fails, stop tool work and tell the user to run `/plugin configure browserless@browserless` (`browserless@inline` for `--plugin-dir`), enter the hosted token in the sensitive configuration UI, then reconnect in `/mcp` or restart Claude Code. Do not probe or configure the connection through the shell, read local credentials, ask for a token in chat, invent MCP configuration, or fall back to REST authentication. Arbitrary self-hosted endpoints and self-hosted-only tokens are unsupported; do not send those tokens to hosted MCP.
 
-Make a POST request to the Browserless smart-scrape endpoint:
-
-```
-POST ${BROWSERLESS_API_URL}/smart-scrape?token=${BROWSERLESS_TOKEN}
-Content-Type: application/json
-```
-
-## Authentication
-
-Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-# Make the request here, before leaving the subshell.
-)
-```
-
-The token is resolved in this order:
-1. `$BROWSERLESS_TOKEN` environment variable (if already set in the shell)
-2. `~/.browserless/.env` file (written by `/browserless:auth`)
-3. If neither exists, ask the user to run `/browserless:auth` to configure their token
-
-For the API URL, use `$BROWSERLESS_API_URL` if set, otherwise default to `https://production-sfo.browserless.io`.
-
-### Request body
+## Tool arguments
 
 ```json
 {
-  "url": "<target URL - required, must be http:// or https://>",
-  "formats": ["markdown", "html", "screenshot", "pdf", "links"],
-  "timeout": 30000
+  "url": "https://example.com",
+  "formats": ["markdown"]
 }
 ```
 
-- `url` (required): The webpage URL to scrape.
-- `formats` (optional, default `["html"]`): Array of output formats. Choose based on what the user needs:
-  - `"markdown"` - Best for reading/summarizing content. **Default to this when the user just wants to read a page.**
-  - `"html"` - Raw HTML content.
-  - `"screenshot"` - Base64-encoded screenshot image.
-  - `"pdf"` - Base64-encoded PDF.
-  - `"links"` - Array of all links found on the page.
-- `timeout` (optional): Max time in milliseconds.
+Default to `markdown` for reading or summarizing a page. Request only the formats needed: `markdown`, `html`, `rawText`, `links`, `screenshot`, `pdf`, `json`, or `summary`. The AI `json` and `summary` formats add extraction units. For `json`, supply `jsonOptions.schema`, `jsonOptions.prompt`, or both; do not supply `jsonOptions` for other formats.
 
-### Response
+Optional arguments include `timeout`, `profile`, `onlyMainContent`, `includeTags`, `excludeTags`, `headers`, and `waitFor`. `waitFor` is milliseconds, from 0 to 30000. Do not combine `includeTags` with `excludeTags` or `onlyMainContent`. Use only the connected tool's supported parameters; authentication to Browserless comes from the MCP connection, not target-page headers.
 
-```json
-{
-  "ok": true,
-  "statusCode": 200,
-  "content": "<html>...</html>",
-  "contentType": "text/html; charset=utf-8",
-  "strategy": "http-fetch",
-  "attempted": ["http-fetch"],
-  "message": null,
-  "screenshot": null,
-  "pdf": null,
-  "markdown": "# Page Title\n...",
-  "links": ["https://example.com/page1", "..."]
-}
-```
+For screenshots or PDFs to keep, set `toDisk: true`. This saves binary attachments, not requested text extraction. Before retrieving a saved artifact, read [the shared saving instructions](../agent/SKILL.md#saving-artifacts) and follow that workflow. Do not open the saved file as a save fallback. If the user explicitly wants inline image analysis, `toDisk: false` permits it and the image enters model context.
 
-Key response fields:
-- `ok`: Whether the scrape succeeded.
-- `strategy`: Which strategy worked (http-fetch, http-proxy, browser, browser-captcha).
-- `attempted`: All strategies that were tried.
-- `markdown`, `screenshot`, `pdf`, `links`: Populated based on requested formats.
-- `message`: Error description if `ok` is false.
-
-## Execution
-
-Use `curl` via Bash to make the request. Default to `["markdown"]` format unless the user asks for something specific. Present the markdown content directly to the user, or save binary outputs (screenshot/pdf) to files.
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/smart-scrape?token=$BROWSERLESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "formats": ["markdown"]}'
-)
-```
+Present the requested content and any extraction warnings. A successful page fetch does not imply that every requested format was produced. For content across multiple pages, use `/browserless:crawl` instead.
