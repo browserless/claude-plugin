@@ -46,7 +46,7 @@ To change them later, run `/plugin configure browserless@browserless`, then rest
 
 ### 3. Check the connection
 
-Open `/mcp` and check that Browserless is connected. For configuration guidance, run:
+Open `/mcp` and check that the plugin's `plugin:browserless:browserless` server is connected, not just another Browserless server. For configuration guidance, run:
 
 ```
 /browserless:auth
@@ -94,7 +94,9 @@ Once authenticated, all skills are available as slash commands:
 
 ## MCP Server (all skills)
 
-Installing this plugin registers the hosted **Browserless MCP server** (`https://mcp.browserless.io/mcp`). Every operation goes through its tools, including scraping, search, map, function, export, performance and crawl. `browserless_agent` provides an interactive browser session for multi-step work.
+Installing this plugin registers the hosted **Browserless MCP server** (`https://mcp.browserless.io/mcp?mcpSource=claude-plugin`) as `plugin:browserless:browserless`. Every operation uses only this server's tools (`mcp__plugin_browserless_browserless__*`), including scraping, search, map, function, export, performance and crawl. `browserless_agent` provides an interactive browser session for multi-step work. If the plugin's tool is missing, skills stop with configuration guidance rather than silently using another connection's account or region. Self-hosted requests require your agreement before any work runs on hosted Browserless; the plugin does not offer REST alternatives.
+
+The fixed `mcpSource=claude-plugin` query parameter is a non-secret attribution tag. It distinguishes the plugin URL from a manually added `https://mcp.browserless.io/mcp` connection, preventing Claude Code's duplicate-URL suppression; it does not change authentication, region, or artifact delivery.
 
 The MCP server authenticates with the plugin's options. Claude Code sends the **Browserless API token** as the `Authorization` header and the **Browserless API URL** as `x-browserless-api-url`. The plugin runs no local scripts or helpers. Because an `Authorization` header is always configured, Claude Code doesn't offer OAuth sign-in for this server: set the token instead.
 
@@ -117,6 +119,7 @@ The function, export, smart-scrape and performance skills share the agent skill'
 **Troubleshooting:**
 
 - **Browserless is missing from `/mcp`:** Claude Code doesn't start the server until the required API token is set. Run `/plugin configure browserless@browserless`, enter the token, then restart Claude Code.
+- **A manual Browserless connection is already installed:** Claude Code can hide a plugin server when another MCP entry has the identical URL. The plugin's tagged URL avoids a clash with the usual untagged manual entry. To use only the plugin's token, region and native artifact saving, remove the old manual entry with `claude mcp remove browserless` (substitute its actual name and scope if different), then reconnect or restart. Remove it only if you no longer need that separate connection. If the plugin server is still missing, check `/mcp` for another entry with the exact tagged URL; another server's tools are not a substitute.
 - **`/mcp` reports that the server rejected the configured Authorization header:** the **Browserless API URL** option isn't a valid `https://*.browserless.io` URL. Claude Code names the header, but the server refused the URL. Fix it with `/plugin configure browserless@browserless` and reconnect Browserless in `/mcp`.
 - **Browserless connects, but tool calls fail with `401: Invalid API key`:** the API token is wrong. The server checks the token on each tool call, not when connecting. Replace it with `/plugin configure browserless@browserless` and reconnect.
 
