@@ -1,111 +1,27 @@
 ---
 name: function
-description: Execute custom Puppeteer JavaScript code on the Browserless cloud. Use when the user needs to run arbitrary browser automation scripts, interact with page elements, fill forms, click buttons, or perform complex multi-step browser tasks that go beyond simple scraping.
+description: Run custom Puppeteer JavaScript through Browserless MCP. Use when the user needs a fixed browser automation script, custom extraction, form interaction, or structured results beyond a simple scrape.
 ---
 
 # Function
 
-Use the Browserless `/function` REST API to execute custom Puppeteer JavaScript code in a cloud browser.
+Call the `browserless_function` MCP tool through the plugin's configured connection. The user's request is: "$ARGUMENTS"
 
-The user's request is: "$ARGUMENTS"
+If the tool is unavailable or authentication fails, stop tool work and tell the user to run `/plugin configure browserless@browserless` (`browserless@inline` for `--plugin-dir`), enter the hosted token in the sensitive configuration UI, then reconnect in `/mcp` or restart Claude Code. Do not probe or configure the connection through the shell, read local credentials, ask for a token in chat, invent MCP configuration, or fall back to REST authentication. Arbitrary self-hosted endpoints and self-hosted-only tokens are unsupported; do not send those tokens to hosted MCP.
 
-## How to call
-
-Make a POST request to the Browserless function endpoint:
-
-```
-POST ${BROWSERLESS_API_URL}/function?token=${BROWSERLESS_TOKEN}
-Content-Type: application/javascript
-```
-
-OR with JSON payload:
-
-```
-POST ${BROWSERLESS_API_URL}/function?token=${BROWSERLESS_TOKEN}
-Content-Type: application/json
-```
-
-## Authentication
-
-Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-# Make the request here, before leaving the subshell.
-)
-```
-
-The token is resolved in this order:
-1. `$BROWSERLESS_TOKEN` environment variable (if already set in the shell)
-2. `~/.browserless/.env` file (written by `/browserless:auth`)
-3. If neither exists, ask the user to run `/browserless:auth` to configure their token
-
-For the API URL, use `$BROWSERLESS_API_URL` if set, otherwise default to `https://production-sfo.browserless.io`.
-
-### Option 1: JavaScript body (Content-Type: application/javascript)
-
-Send raw JavaScript code directly. The function receives a `page` (Puppeteer Page) and optional `context` object, and must return `{ data, type }`.
-
-```javascript
-export default async ({ page, context }) => {
-  await page.goto("https://example.com");
-  const title = await page.title();
-  return {
-    data: { title },
-    type: "application/json"
-  };
-};
-```
-
-### Option 2: JSON body (Content-Type: application/json)
+## Tool arguments
 
 ```json
 {
-  "code": "export default async ({ page, context }) => { await page.goto(context.url); const title = await page.title(); return { data: { title }, type: 'application/json' }; };",
-  "context": {
-    "url": "https://example.com"
-  }
+  "code": "export default async ({ page, context }) => { await page.goto(context.url); return { title: await page.title() }; };",
+  "context": { "url": "https://example.com" }
 }
 ```
 
-Parameters:
-- `code` (string, required): ESM JavaScript code. Must export a default async function that receives `{ page, context }` and returns `{ data, type }`.
-- `context` (object, optional): Data passed into the function for dynamic behavior.
+`code` is an ESM module whose default export receives `{ page, context }`. Pass dynamic inputs in the optional `context` object. Use the optional `timeout` in milliseconds and `profile` only when needed and supported by the connected tool.
 
-### Return value
+Return the result directly: a string becomes text, an object or array becomes JSON, and raw bytes from `page.screenshot()` or `page.pdf()` become a binary result. Do not wrap bytes in `{ data, type }`, encode them as base64, or use `Buffer`, which is unavailable inside the function. Filter large extracted datasets inside the function rather than returning unnecessary content. Text results are capped at 200,000 characters.
 
-The function must return:
-- `data`: The result - can be a Buffer, JSON object, or plain text string.
-- `type`: Content-Type string that determines the response format (e.g., `"application/json"`, `"text/plain"`, `"image/png"`).
+For a file to keep, set `toDisk: true`, including for JSON or text. For intentional inline binary analysis, use `toDisk: false` only when that is the user's intent. Before retrieving a saved artifact, read [the shared saving instructions](../agent/SKILL.md#saving-artifacts) and follow that workflow. If safe saving is unsupported, report the limitation instead of downloading through the shell or reading saved bytes into context.
 
-### Response
-
-The response body and content-type match what the function returns.
-
-## Execution
-
-Use `curl` via Bash. For simple scripts, use `application/javascript` content type. For scripts needing dynamic context data, use `application/json`. Example:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/function?token=$BROWSERLESS_TOKEN" \
-  -H "Content-Type: application/javascript" \
-  -d 'export default async ({ page }) => {
-  await page.goto("https://example.com");
-  const title = await page.title();
-  return { data: { title }, type: "application/json" };
-};'
-)
-```
-
-Write the Puppeteer code based on the user's requirements. Use best practices: wait for selectors before interacting, handle navigation events, and return structured data.
+Write the script for the user's requested actions, wait for selectors or navigation where needed, and report the returned result. For an interactive session that must persist across calls, use `/browserless:agent` instead.

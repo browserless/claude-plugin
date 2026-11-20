@@ -1,118 +1,27 @@
 ---
 name: search
-description: Search the web using the Browserless search API. Returns structured search results from web, news, and image sources with optional content scraping. Use when the user wants to search the web, find information online, or look up something on the internet.
+description: Search the web through Browserless MCP. Use when the user wants web, news, or image search results, recent information, language filtering, or optional result-page scraping.
 ---
 
 # Search
 
-Use the Browserless `/search` REST API to perform web searches and get structured results.
+Call the `browserless_search` MCP tool through the plugin's configured connection. The user's request is: "$ARGUMENTS"
 
-The user's request is: "$ARGUMENTS"
+If the tool is unavailable or authentication fails, stop tool work and tell the user to run `/plugin configure browserless@browserless` (`browserless@inline` for `--plugin-dir`), enter the hosted token in the sensitive configuration UI, then reconnect in `/mcp` or restart Claude Code. Do not probe or configure the connection through the shell, read local credentials, ask for a token in chat, invent MCP configuration, or fall back to REST authentication. Arbitrary self-hosted endpoints and self-hosted-only tokens are unsupported; do not send those tokens to hosted MCP.
 
-## How to call
-
-Make a POST request to the Browserless search endpoint:
-
-```
-POST ${BROWSERLESS_API_URL}/search?token=${BROWSERLESS_TOKEN}
-Content-Type: application/json
-```
-
-## Authentication
-
-Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-# Make the request here, before leaving the subshell.
-)
-```
-
-The token is resolved in this order:
-1. `$BROWSERLESS_TOKEN` environment variable (if already set in the shell)
-2. `~/.browserless/.env` file (written by `/browserless:auth`)
-3. If neither exists, ask the user to run `/browserless:auth` to configure their token
-
-For the API URL, use `$BROWSERLESS_API_URL` if set, otherwise default to `https://production-sfo.browserless.io`.
-
-### Query parameters
-
-These are appended to the URL as query parameters (e.g., `?token=...&timeout=30000`):
-
-- `token` (string): Authorization token (handled by auth, see above).
-- `timeout` (number): Timeout for the search operation in milliseconds.
-
-### Request body
+## Tool arguments
 
 ```json
 {
-  "query": "<search query>",
+  "query": "browserless headless browser",
   "sources": ["web"],
   "limit": 10,
   "lang": "en"
 }
 ```
 
-#### Parameters:
+`sources` accepts `web`, `news`, and `images`. Use `tbs` for `day`, `week`, `month`, or `year`; `categories` for `github`, `pdf`, or `research`. Optional arguments include `country`, `location`, and `timeout` in milliseconds. The maximum `limit` is 100.
 
-- `query` (string, required): The search query.
-- `sources` (array of strings): Data sources to search. Values: `"web"`, `"news"`, `"images"`. Default to `["web"]`.
-- `limit` (number): Maximum number of results to return.
-- `lang` (string): Language code — `"en"`, `"es"`, `"de"`, `"fr"`, `"ja"`, etc.
-- `location` (string): Location context for the search.
-- `country` (string): Country context for the search.
-- `tbs` (string): Time-based filter. Values: `"day"`, `"week"`, `"month"`, `"year"`.
-- `categories` (array of strings): Content category filters. Values: `"github"`, `"pdf"`, `"research"`.
-- `timeout` (number): Search timeout in milliseconds (body-level override).
+When the user requests scraping of result pages and the connected tool exposes it, set `scrapeOptions.formats` to the needed formats (`markdown`, `html`, `links`, or `screenshot`). Supported shaping options are `onlyMainContent`, `includeTags`, and `excludeTags`. Do not add REST-only options or assume every MCP surface supports result-page scraping.
 
-#### `scrapeOptions` (object) — Scrape each result page:
-
-- `formats` (array of strings, required): Output formats for scraped content — `"markdown"`, `"html"`, `"links"`, `"screenshot"`.
-- `onlyMainContent` (boolean): Extract only the main content, skipping navigation/footer/sidebar.
-- `stripNonContentTags` (boolean): Strip non-content HTML tags from output.
-- `removeBase64Images` (boolean): Remove base64-encoded images from output.
-- `includeTags` (array of strings): Only include content from these HTML tags.
-- `excludeTags` (array of strings): Exclude content from these HTML tags.
-
-### Response
-
-```json
-{
-  "success": true,
-  "data": {
-    "web": [
-      {
-        "title": "Result Title",
-        "url": "https://example.com",
-        "description": "Result description snippet.",
-        "position": 1
-      }
-    ]
-  },
-  "totalResults": 10
-}
-```
-
-## Execution
-
-Use `curl` via Bash to make the request. Example:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/search?token=$BROWSERLESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "browserless headless browser", "sources": ["web"], "limit": 10}'
-)
-```
-
-Present the results in a readable format to the user. If the user wants to deep-dive into a specific result, suggest using the `smart-scrape` skill to fetch that page's content.
+Present search results with their source URLs. For a specific page's content, use `/browserless:smart-scrape`. For a screenshot the user wants to keep, use that skill's saved-artifact path rather than treating search output as a local file.

@@ -1,114 +1,26 @@
 ---
 name: export
-description: Export a webpage or file in its native format, optionally bundling all resources (CSS, JS, images) into a ZIP archive for offline use. Use when the user wants to save a webpage for offline viewing, download a page with all its assets, or export web content.
+description: Save a webpage or file through Browserless MCP, optionally bundling page assets into a ZIP. Use when the user wants an offline copy, a native-format download, or a page with its resources.
 ---
 
 # Export
 
-Use the Browserless `/export` REST API to fetch and export a webpage or file in its native format, with optional resource bundling.
+Call the `browserless_export` MCP tool through the plugin's configured connection. The user's request is: "$ARGUMENTS"
 
-The user's request is: "$ARGUMENTS"
+If the tool is unavailable or authentication fails, stop tool work and tell the user to run `/plugin configure browserless@browserless` (`browserless@inline` for `--plugin-dir`), enter the hosted token in the sensitive configuration UI, then reconnect in `/mcp` or restart Claude Code. Do not probe or configure the connection through the shell, read local credentials, ask for a token in chat, invent MCP configuration, or fall back to REST authentication. Arbitrary self-hosted endpoints and self-hosted-only tokens are unsupported; do not send those tokens to hosted MCP.
 
-## How to call
-
-Make a POST request to the Browserless export endpoint:
-
-```
-POST ${BROWSERLESS_API_URL}/export?token=${BROWSERLESS_TOKEN}
-Content-Type: application/json
-```
-
-## Authentication
-
-Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-# Make the request here, before leaving the subshell.
-)
-```
-
-The token is resolved in this order:
-1. `$BROWSERLESS_TOKEN` environment variable (if already set in the shell)
-2. `~/.browserless/.env` file (written by `/browserless:auth`)
-3. If neither exists, ask the user to run `/browserless:auth` to configure their token
-
-For the API URL, use `$BROWSERLESS_API_URL` if set, otherwise default to `https://production-sfo.browserless.io`.
-
-### Request body
+## Tool arguments
 
 ```json
 {
-  "url": "<target URL - required, must be http:// or https://>",
-  "includeResources": false,
-  "gotoOptions": {
-    "waitUntil": "networkidle0"
-  },
-  "bestAttempt": false,
-  "waitForTimeout": 0,
-  "waitForSelector": null,
-  "waitForEvent": null,
-  "waitForFunction": null
+  "url": "https://example.com",
+  "includeResources": true,
+  "toDisk": true
 }
 ```
 
-Parameters:
-- `url` (string, required): The webpage or file URL to export.
-- `includeResources` (boolean, optional, default `false`): When `true`, bundles the HTML and all linked assets (CSS, JS, images) into a ZIP file for offline use.
-- `gotoOptions` (object, optional): Puppeteer `Page.goto()` options. Common values for `waitUntil`: `"load"`, `"domcontentloaded"`, `"networkidle0"`, `"networkidle2"`.
-- `bestAttempt` (boolean, optional, default `false`): When `true`, continues even if async events (waitFor*) fail or timeout.
-- `waitForTimeout` (number, optional): Milliseconds to wait after page load before exporting.
-- `waitForSelector` (object, optional): Wait for a CSS selector to appear. Format: `{ "selector": "#content", "timeout": 5000 }`.
-- `waitForEvent` (object, optional): Wait for a page event. Format: `{ "event": "load", "timeout": 5000 }`.
-- `waitForFunction` (object, optional): Wait for a JS function to return truthy. Format: `{ "fn": "() => document.title !== ''", "timeout": 5000 }`.
+Use `toDisk: true` for files to keep, including exported HTML. Set `includeResources: true` only when the user wants all page assets bundled into a ZIP; otherwise omit it or set false. Optional arguments include `gotoOptions.waitUntil`, `gotoOptions.timeout`, `bestAttempt`, `waitForTimeout`, `timeout`, and `profile`. Follow the connected tool's schema; not every endpoint exposes bundling or saved-file options. Do not send unsupported REST-only wait options.
 
-### Response
+Before retrieving any saved artifact, read [the shared saving instructions](../agent/SKILL.md#saving-artifacts) and follow that workflow. A returned resource URI is not a local path. Copy only through the verified resource-to-disk path, obtain permission for the copy, and report the destination only after success. If safe saving is unavailable, stop and report it; do not inspect saved bytes or use shell-download instructions as a fallback.
 
-The response content type depends on what is being exported:
-- **HTML pages**: `text/html` — raw HTML markup.
-- **PDF files**: `application/pdf` — binary PDF data.
-- **Images**: Appropriate MIME type (e.g., `image/jpeg`) — binary image data.
-- **ZIP archives** (when `includeResources: true`): `application/zip` — contains the HTML file and all its resources.
-
-The response includes `Content-Disposition` headers for file downloads.
-
-## Execution
-
-Use `curl` via Bash to make the request. Always save the output to a file with `-o` since the response may be binary. Example:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/export?token=$BROWSERLESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -o exported_page.html \
-  -d '{"url": "https://example.com"}'
-)
-```
-
-For ZIP export with all resources:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/export?token=$BROWSERLESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -o exported_site.zip \
-  -d '{"url": "https://example.com", "includeResources": true}'
-)
-```
-
-Choose the output filename extension based on what the user is exporting (`.html`, `.pdf`, `.zip`, etc.). When `includeResources` is true, always use `.zip`.
+Use the returned MIME type and filename when choosing the destination extension. Do not claim an export saved locally merely because the tool returned download metadata.

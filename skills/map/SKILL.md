@@ -1,106 +1,24 @@
 ---
 name: map
-description: Discover and map all URLs on a website using the Browserless map API. Crawls sitemaps, pages, and subdomains to build a list of all URLs. Use when the user wants to map a website's structure, find all pages on a site, discover URLs, or get a sitemap.
+description: Discover URLs on a website through Browserless MCP. Use when the user wants a sitemap, a website's structure, all pages on a site, or URLs ranked by relevance.
 ---
 
 # Map
 
-Use the Browserless `/map` REST API to discover and list all URLs on a website.
+Call the `browserless_map` MCP tool through the plugin's configured connection. The user's request is: "$ARGUMENTS"
 
-The user's request is: "$ARGUMENTS"
+If the tool is unavailable or authentication fails, stop tool work and tell the user to run `/plugin configure browserless@browserless` (`browserless@inline` for `--plugin-dir`), enter the hosted token in the sensitive configuration UI, then reconnect in `/mcp` or restart Claude Code. Do not probe or configure the connection through the shell, read local credentials, ask for a token in chat, invent MCP configuration, or fall back to REST authentication. Arbitrary self-hosted endpoints and self-hosted-only tokens are unsupported; do not send those tokens to hosted MCP.
 
-## How to call
-
-Make a POST request to the Browserless map endpoint:
-
-```
-POST ${BROWSERLESS_API_URL}/map?token=${BROWSERLESS_TOKEN}
-Content-Type: application/json
-```
-
-## Authentication
-
-Resolve credentials and make each request in the same subshell, as in the execution example. This keeps saved values from becoming overrides on later calls:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-# Make the request here, before leaving the subshell.
-)
-```
-
-The token is resolved in this order:
-1. `$BROWSERLESS_TOKEN` environment variable (if already set in the shell)
-2. `~/.browserless/.env` file (written by `/browserless:auth`)
-3. If neither exists, ask the user to run `/browserless:auth` to configure their token
-
-For the API URL, use `$BROWSERLESS_API_URL` if set, otherwise default to `https://production-sfo.browserless.io`.
-
-### Request body
+## Tool arguments
 
 ```json
 {
   "url": "https://example.com",
-  "limit": 100
+  "limit": 100,
+  "sitemap": "include"
 }
 ```
 
-Parameters:
-- `url` (string, required): Base URL to discover links from. Must be http:// or https://.
-- `search` (string, optional): Query to rank results by relevance. Use this to find specific pages.
-- `limit` (number, optional, default 5000): Max number of URLs to return (1-5000).
-- `timeout` (number, optional): Request timeout in milliseconds.
-- `sitemap` (string, optional, default `"include"`): Sitemap discovery mode.
-  - `"include"` - Use sitemap alongside crawling.
-  - `"skip"` - Don't use sitemap, crawl only.
-  - `"only"` - Only use sitemap, don't crawl.
-- `includeSubdomains` (boolean, optional, default `true`): Include URLs from subdomains.
-- `ignoreQueryParameters` (boolean, optional, default `true`): Remove query params to reduce duplicates.
-- `location` (object, optional): Geo-targeting.
-  - `country` (string): Country code, e.g. `"us"`, `"gb"`, `"de"`.
-  - `languages` (string[]): Preferred languages.
+Use `search` to rank URLs by relevance. `sitemap` accepts `include`, `skip`, or `only`. Optional `includeSubdomains` and `ignoreQueryParameters` default to true. `limit` defaults to 100, with a maximum of 5000 on the full endpoint; follow the connected tool's schema if it has a lower limit. `timeout` is in milliseconds. Pass supported options as tool arguments, not query parameters or a REST request body. The MCP tool does not expose the REST `location` option.
 
-### Response
-
-```json
-{
-  "success": true,
-  "links": [
-    {
-      "url": "https://example.com/page1",
-      "title": "Page Title",
-      "description": "Page description."
-    },
-    {
-      "url": "https://example.com/page2"
-    }
-  ]
-}
-```
-
-Response fields:
-- `success` (boolean): Whether the operation succeeded.
-- `links` (array): Discovered URLs with optional title and description.
-
-## Execution
-
-Use `curl` via Bash to make the request. Example:
-
-```bash
-(
-_bl_token="${BROWSERLESS_TOKEN:-}"; _bl_url="${BROWSERLESS_API_URL:-}"
-source ~/.browserless/.env 2>/dev/null
-BROWSERLESS_TOKEN="${_bl_token:-${BROWSERLESS_TOKEN:-}}"
-BROWSERLESS_API_URL="${_bl_url:-${BROWSERLESS_API_URL:-}}"
-unset _bl_token _bl_url
-curl -s -X POST "${BROWSERLESS_API_URL:-https://production-sfo.browserless.io}/map?token=$BROWSERLESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "limit": 100}'
-)
-```
-
-Present the discovered URLs to the user in a readable format. If the user wants to search for specific pages, use the `search` parameter to filter by relevance.
+Present the returned URLs, titles and descriptions in a readable list. Distinguish an empty result from a failed request. If the user wants page content rather than URL discovery, use `/browserless:smart-scrape` or `/browserless:crawl`.

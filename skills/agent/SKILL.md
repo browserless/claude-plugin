@@ -71,12 +71,12 @@ The agent handles the hard parts automatically — cookie consent, captchas, log
 
 ## Auth
 
-The MCP server authenticates with the plugin's options, not with `~/.browserless/.env`:
+All skills authenticate through the MCP connection using the plugin's options. Do not read local credentials or ask for a token in chat:
 
 - **Browserless API token** (`browserless_token`): required. Claude Code stores it as a secret, not in `settings.json`, and sends it as the `Authorization` header.
-- **Browserless API URL** (`api_url`): the hosted region, sent as `x-browserless-api-url`. Defaults to SFO (`https://production-sfo.browserless.io`). Use `https://production-lon.browserless.io`, `https://production-ams.browserless.io`, or another `https://*.browserless.io` URL such as a dedicated deployment. The hosted MCP server rejects self-hosted URLs, so keep those for the REST skills only.
+- **Browserless API URL** (`api_url`): the hosted region, sent as `x-browserless-api-url`. Defaults to SFO (`https://production-sfo.browserless.io`). Use `https://production-lon.browserless.io`, `https://production-ams.browserless.io`, or another `https://*.browserless.io` URL such as a dedicated deployment. Arbitrary self-hosted URLs and self-hosted-only tokens are unsupported by this plugin; do not send those tokens to the hosted server or fall back to REST.
 
-To set or change them, run `/plugin configure browserless@browserless` (or `browserless@inline` when the plugin is loaded with `--plugin-dir`), then restart Claude Code or reconnect Browserless in `/mcp` to apply them. From a shell, pipe a JSON object to `claude plugin configure browserless@browserless --values-stdin`. Never print the token.
+To set or change them, direct the user to `/plugin configure browserless@browserless` (or `browserless@inline` when the plugin is loaded with `--plugin-dir`), then restart Claude Code or reconnect Browserless in `/mcp` to apply them. Never print the token.
 
 If the `browserless_agent` tool isn't listed, the MCP server isn't connected. Claude Code doesn't start the Browserless server until the required API token is set, so if Browserless is missing from `/mcp`, run `/plugin configure browserless@browserless`, enter the token, and restart Claude Code or reconnect in `/mcp`.
 

@@ -24,7 +24,7 @@
     "api_url": {
       "type": "string",
       "title": "Browserless API URL",
-      "description": "Hosted region the MCP server uses: https://production-sfo.browserless.io (default), https://production-lon.browserless.io, https://production-ams.browserless.io, or another https://*.browserless.io URL such as a dedicated deployment. Self-hosted URLs work only with the REST skills; leave the default here.",
+      "description": "Hosted region used by all skills: https://production-sfo.browserless.io (default), https://production-lon.browserless.io, https://production-ams.browserless.io, or another https://*.browserless.io URL such as a dedicated deployment. Arbitrary self-hosted URLs and self-hosted-only tokens are not supported by this plugin.",
       "default": "https://production-sfo.browserless.io"
     }
   }
