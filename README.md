@@ -19,13 +19,7 @@ To pull future updates:
 
 ### Manual install (local development)
 
-Clone the repo and point Claude Code at the plugin directory:
-
-```bash
-git clone https://github.com/browserless/claude-plugin.git
-cd claude-plugin
-claude --plugin-dir .
-```
+For local development, follow [Claude Code's official plugin creation and local testing instructions](https://code.claude.com/docs/en/plugins).
 
 A plugin loaded with `--plugin-dir` has the id `browserless@inline`, so set its options with `/plugin configure browserless@inline` instead of `browserless@browserless`.
 
